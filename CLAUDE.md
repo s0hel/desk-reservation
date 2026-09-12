@@ -178,6 +178,20 @@ native dependencies stay inside what Expo Go bundles — today just `expo-secure
 those need a development build and therefore a current Xcode. Do not treat "it runs in
 Expo Go" as evidence the dev-build path works.
 
+**Running on a physical phone needs the LAN address in two places, and one of them
+fails silently.** `apps/mobile/.env` must set `EXPO_PUBLIC_API_BASE_URL` to the Mac's LAN
+address (`ipconfig getifaddr en0`), not `localhost` — on a device localhost is the phone,
+so the bundle loads fine and then every request fails, which reads like a broken app
+rather than a config problem. The value is inlined at bundle time, so Metro must be
+restarted after changing it. The LAN address also works for the simulator, so prefer it
+always. It is a DHCP lease: after a router reboot it can go stale and reproduce the same
+silent failure.
+
+Expo Go's "signed in to the CLI but not to Expo Go" notice is a red herring — signing in
+only makes the project appear under Development servers. Opening `exp://<lan-ip>:8081`
+directly works either way. If the phone genuinely cannot reach the Mac (different network,
+or client isolation), use `npx expo start --go --tunnel`.
+
 **CocoaPods comes from Homebrew** (`brew install cocoapods`). System Ruby is 2.6, too old
 to run a modern CocoaPods.
 
