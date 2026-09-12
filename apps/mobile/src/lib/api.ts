@@ -39,6 +39,28 @@ export type Me = {
   id: string; organization_id: string; email: string; display_name: string;
   locale: string; home_site_id: string | null; presence_visibility: string; roles: string[];
 };
+export type ResourceAvailability = {
+  id: string; code: string; name: string | null; kind: "desk" | "room";
+  capacity: number; position: { x?: number; y?: number; rotation?: number };
+  attributes: Record<string, unknown>; zone_id: string | null;
+  available: boolean; bookable: boolean;
+  out_of_service_reason: string | null; occupied_by_me: boolean;
+};
+
+export type Availability = {
+  floor_id: string; local_date: string; slot: Slot;
+  starts_at: string; ends_at: string; site_timezone: string;
+  total: number; available: number; resources: ResourceAvailability[];
+};
+
+export type Slot = "full_day" | "am" | "pm" | "custom";
+
+export type Booking = {
+  id: string; resource_id: string; resource_code: string | null; site_id: string;
+  user_id: string; local_date: string; slot: string; status: string;
+  starts_at: string; ends_at: string; site_timezone: string | null;
+};
+
 export type TokenPair = {
   access_token: string; refresh_token: string; expires_in: number; roles: string[];
 };
@@ -82,4 +104,42 @@ export const api = {
   floors: (t: string, siteId: string) => request<Floor[]>(`/v1/sites/${siteId}/floors`, {}, t),
   resources: (t: string, floorId: string, kind?: "desk" | "room") =>
     request<Resource[]>(`/v1/floors/${floorId}/resources${kind ? `?kind=${kind}` : ""}`, {}, t),
+
+  availability: (t: string, floorId: string, date: string, kind?: "desk" | "room", slot: Slot = "full_day") =>
+    request<Availability>(
+      `/v1/floors/${floorId}/availability?date=${date}&slot=${slot}${kind ? `&kind=${kind}` : ""}`,
+      {}, t,
+    ),
+
+  createBooking: (
+    t: string,
+    body: { resource_id: string; local_date: string; slot?: Slot },
+    idempotencyKey: string,
+  ) =>
+    request<Booking>("/v1/bookings", {
+      method: "POST",
+      body: JSON.stringify(body),
+      // Mobile clients retry; the key makes a retry a replay rather than a second
+      // booking (TDD §10.2). It must be stable across retries of the SAME intent,
+      // so it is generated once when the user commits, not per request.
+      headers: { "Idempotency-Key": idempotencyKey },
+    }, t),
+
+  bookings: (t: string, from?: string, to?: string) => {
+    const q = new URLSearchParams();
+    if (from) q.set("from", from);
+    if (to) q.set("to", to);
+    const qs = q.toString();
+    return request<Booking[]>(`/v1/bookings${qs ? `?${qs}` : ""}`, {}, t);
+  },
+
+  cancelBooking: (t: string, id: string) =>
+    request<Booking>(`/v1/bookings/${id}`, { method: "DELETE" }, t),
 };
+
+/** Stable-per-intent key for booking retries. */
+export function newIdempotencyKey(): string {
+  const c = globalThis.crypto as { randomUUID?: () => string } | undefined;
+  if (c?.randomUUID) return c.randomUUID();
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
