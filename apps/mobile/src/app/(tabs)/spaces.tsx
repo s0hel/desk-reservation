@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "expo-router";
-import { FlatList, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -30,13 +30,17 @@ export default function Spaces() {
       ListEmptyComponent={<Text style={styles.sub}>No floors yet — run `make seed`.</Text>}
       renderItem={({ item }) => (
         <Link href={{ pathname: "/floor/[id]", params: { id: item.id, name: item.name } }} asChild>
-          <View style={styles.card}>
+          <Pressable
+            style={styles.card}
+            accessibilityRole="link"
+            accessibilityLabel={`${item.name}, view resources`}
+          >
             <Text style={styles.cardTitle}>{item.name}</Text>
             <Text style={styles.cardMeta}>
               Plan {item.plan_width_px}×{item.plan_height_px}px · positions are normalised 0–1
             </Text>
             <Text style={styles.link}>View resources →</Text>
-          </View>
+          </Pressable>
         </Link>
       )}
     />

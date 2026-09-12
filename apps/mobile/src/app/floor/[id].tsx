@@ -25,7 +25,7 @@ export default function FloorScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: name ?? "Floor" }} />
+      <Stack.Screen options={{ title: name ?? "Floor", headerBackTitle: "Spaces" }} />
       <View style={styles.screen}>
         <View style={styles.tabs}>
           {(["desk", "room"] as const).map((k) => (
