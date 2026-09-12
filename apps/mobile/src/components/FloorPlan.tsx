@@ -95,6 +95,10 @@ export function FloorPlan({ resources, zones = [], aspectRatio = 1.5, onSelect }
   );
 
   const pan = Gesture.Pan()
+    // A real finger drifts a few pixels while tapping. Without a minimum distance the
+    // pan activates on that wobble and cancels the tap, so desks become unselectable on
+    // hardware while still working in the simulator, whose taps have zero movement.
+    .minDistance(10)
     .onUpdate((e) => {
       tx.value = savedTx.value + e.translationX;
       ty.value = savedTy.value + e.translationY;
@@ -113,7 +117,10 @@ export function FloorPlan({ resources, zones = [], aspectRatio = 1.5, onSelect }
     });
 
   const tap = Gesture.Tap()
-    .maxDuration(250)
+    // Tuned for a finger, not a synthetic click: a deliberate tap on a small target
+    // regularly exceeds 250ms and moves further than the default slop allows.
+    .maxDuration(600)
+    .maxDistance(24)
     .onEnd((e) => {
       // Recover plan-space coordinates from the live transform. Reading the shared
       // values here (on the UI thread) is what keeps this correct mid-gesture.

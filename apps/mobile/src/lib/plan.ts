@@ -50,6 +50,12 @@ export function shortLabel(code: string): string {
  * centre + (point - centre - translation) / scale, then normalized by plan size.
  */
 export function viewportToPlan(point: PlanPoint, v: Viewport): PlanPoint {
+  // MUST stay a worklet. This is called from inside a gesture handler, which runs on the
+  // UI thread, and Reanimated cannot call an ordinary JS function there — it aborts the
+  // process natively, with no red box and nothing in the Metro log. Extracting this
+  // function for testability is what dropped the directive and crashed tap-to-book.
+  // The directive is inert under Jest, so the tests still exercise it directly.
+  "worklet";
   const cx = v.width / 2;
   const cy = v.height / 2;
   const px = (point.x - v.tx - cx) / v.scale + cx;

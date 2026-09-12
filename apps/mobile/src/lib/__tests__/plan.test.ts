@@ -7,6 +7,9 @@
  * therefore the least interesting one here.
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { NODE_RADIUS, buildIndex, findNearest, shortLabel, viewportToPlan } from "../plan";
 
 const VIEW = { tx: 0, ty: 0, scale: 1, width: 400, height: 300 };
@@ -116,5 +119,17 @@ describe("buildIndex", () => {
 
   it("separates distant desks into different cells", () => {
     expect(buildIndex([desk("A-01", 0.05, 0.05), desk("Z-01", 0.95, 0.95)]).size).toBe(2);
+  });
+});
+
+describe("worklet contract", () => {
+  it("viewportToPlan still declares itself a worklet", () => {
+    // Not a style check. This function is called from a gesture handler on the UI
+    // thread; without the directive Reanimated aborts the process natively — no red
+    // box, nothing in the Metro log, the app simply quits. Types cannot express this,
+    // so it is asserted against the source.
+    const source = readFileSync(join(__dirname, "..", "plan.ts"), "utf8");
+    const body = source.slice(source.indexOf("export function viewportToPlan"));
+    expect(body.slice(0, body.indexOf("const cx"))).toContain('"worklet"');
   });
 });
