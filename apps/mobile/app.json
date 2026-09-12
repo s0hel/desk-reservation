@@ -7,7 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "deskflow",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "bundleIdentifier": "com.deskflow.app",
       "supportsTablet": true,
@@ -28,16 +27,25 @@
       },
       "predictiveBackGestureEnabled": false
     },
-    "web": { "output": "static", "favicon": "./assets/images/favicon.png" },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      ["expo-splash-screen", {
-        "backgroundColor": "#208AEF",
-        "image": "./assets/images/splash-icon.png",
-        "imageWidth": 76
-      }]
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#208AEF",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 76
+        }
+      ]
     ],
-    "experiments": { "typedRoutes": true, "reactCompiler": true }
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
   }
 }
