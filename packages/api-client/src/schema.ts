@@ -150,10 +150,172 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/floors/{floor_id}/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Floor Availability */
+        get: operations["floor_availability_v1_floors__floor_id__availability_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bookings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Bookings */
+        get: operations["list_bookings_v1_bookings_get"];
+        put?: never;
+        /** Create */
+        post: operations["create_v1_bookings_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bookings/{booking_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Cancel */
+        delete: operations["cancel_v1_bookings__booking_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AvailabilityOut */
+        AvailabilityOut: {
+            /**
+             * Floor Id
+             * Format: uuid
+             */
+            floor_id: string;
+            /**
+             * Local Date
+             * Format: date
+             */
+            local_date: string;
+            /**
+             * Slot
+             * @enum {string}
+             */
+            slot: "full_day" | "am" | "pm" | "custom";
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /** Site Timezone */
+            site_timezone: string;
+            /** Total */
+            total: number;
+            /** Available */
+            available: number;
+            /** Resources */
+            resources: components["schemas"]["ResourceAvailabilityOut"][];
+        };
+        /** BookingOut */
+        BookingOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Resource Id
+             * Format: uuid
+             */
+            resource_id: string;
+            /** Resource Code */
+            resource_code?: string | null;
+            /**
+             * Site Id
+             * Format: uuid
+             */
+            site_id: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /**
+             * Local Date
+             * Format: date
+             */
+            local_date: string;
+            /** Slot */
+            slot: string;
+            /** Status */
+            status: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /** Site Timezone */
+            site_timezone?: string | null;
+        };
+        /** CreateBookingIn */
+        CreateBookingIn: {
+            /**
+             * Resource Id
+             * Format: uuid
+             */
+            resource_id: string;
+            /**
+             * Local Date
+             * Format: date
+             */
+            local_date: string;
+            /**
+             * Slot
+             * @default full_day
+             * @enum {string}
+             */
+            slot: "full_day" | "am" | "pm" | "custom";
+            /** Starts At */
+            starts_at?: string | null;
+            /** Ends At */
+            ends_at?: string | null;
+            /**
+             * User Id
+             * @description Book on behalf of another user (FR-2.10).
+             */
+            user_id?: string | null;
+        };
         /** DiscoverRequest */
         DiscoverRequest: {
             /**
@@ -231,6 +393,40 @@ export interface components {
         RefreshRequest: {
             /** Refresh Token */
             refresh_token: string;
+        };
+        /** ResourceAvailabilityOut */
+        ResourceAvailabilityOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string | null;
+            /** Kind */
+            kind: string;
+            /** Capacity */
+            capacity: number;
+            /** Position */
+            position: {
+                [key: string]: unknown;
+            };
+            /** Attributes */
+            attributes: {
+                [key: string]: unknown;
+            };
+            /** Zone Id */
+            zone_id: string | null;
+            /** Available */
+            available: boolean;
+            /** Bookable */
+            bookable: boolean;
+            /** Out Of Service Reason */
+            out_of_service_reason: string | null;
+            /** Occupied By Me */
+            occupied_by_me: boolean;
         };
         /** ResourceOut */
         ResourceOut: {
@@ -550,6 +746,144 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResourceOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    floor_availability_v1_floors__floor_id__availability_get: {
+        parameters: {
+            query: {
+                date: string;
+                slot?: "full_day" | "am" | "pm" | "custom";
+                kind?: string | null;
+                min_capacity?: number | null;
+                /** @description JSON attribute filter, e.g. {"sit_stand":true} */
+                filters?: string | null;
+            };
+            header?: never;
+            path: {
+                floor_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvailabilityOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_bookings_v1_bookings_get: {
+        parameters: {
+            query?: {
+                from?: string | null;
+                to?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_v1_bookings_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBookingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_v1_bookings__booking_id__delete: {
+        parameters: {
+            query?: {
+                reason?: string | null;
+            };
+            header?: never;
+            path: {
+                booking_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingOut"];
                 };
             };
             /** @description Validation Error */
