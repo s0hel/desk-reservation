@@ -21,8 +21,10 @@ jobs:
     env:
       ENVIRONMENT: development
       ENABLE_DEV_LOGIN: "true"
-      # CI runs single-role. RLS is FORCEd, so isolation is still exercised (TDD §18.2).
-      DATABASE_URL: postgresql+asyncpg://deskflow_owner:deskflow@localhost:5432/deskflow
+      # Two roles, mirroring production (TDD §18.2). This is not a detail: a superuser
+      # bypasses RLS regardless of FORCE, so running the suite as the owner would make
+      # every tenant-isolation test pass vacuously while isolating nothing.
+      DATABASE_URL: postgresql+asyncpg://deskflow_app:deskflow@localhost:5432/deskflow
       MIGRATION_DATABASE_URL: postgresql+psycopg://deskflow_owner:deskflow@localhost:5432/deskflow
     defaults:
       run: { working-directory: services/api }
@@ -30,6 +32,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - run: uv sync --frozen
+      - name: Create the non-superuser application role
+        env: { PGPASSWORD: deskflow }
+        run: psql -h localhost -U deskflow_owner -d deskflow -f scripts/init-roles.sql
       - name: Lint
         run: uv run ruff check . && uv run ruff format --check .
       - name: Migrate

@@ -6,12 +6,14 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
 
 from app.api.v1 import health
 from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.core.errors import ProblemError, problem_handler
 from app.core.logging import configure_logging
+from app.db.session import engine
 
 settings = get_settings()
 log = structlog.get_logger()
@@ -24,6 +26,37 @@ async def lifespan(app: FastAPI):
     log.info("api.startup", environment=settings.environment, dev_login=settings.enable_dev_login)
     yield
     log.info("api.shutdown")
+
+
+async def assert_rls_enforceable() -> None:
+    """Refuse to serve traffic as a role that bypasses row level security.
+
+    RLS is the tenant boundary (TDD §18.2), and a superuser or BYPASSRLS role ignores it
+    even with FORCE set — silently, with every policy still listed on every table. The
+    check costs one query at startup and turns a catastrophic misconfiguration into a
+    failed boot.
+    """
+    async with engine.connect() as conn:
+        role = (await conn.execute(text("SELECT current_user"))).scalar_one()
+        superuser = (
+            await conn.execute(text("SELECT current_setting('is_superuser')"))
+        ).scalar_one()
+        bypass = (
+            await conn.execute(
+                text("SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user")
+            )
+        ).scalar_one()
+
+    if superuser == "on" or bypass:
+        message = (
+            f"database role '{role}' bypasses row level security "
+            f"(superuser={superuser}, bypassrls={bypass}); tenant isolation would not be "
+            f"enforced. Use the non-superuser application role."
+        )
+        if settings.environment == "development":
+            log.warning("rls.not_enforced", role=role, detail=message)
+        else:
+            raise RuntimeError(message)
 
 
 app = FastAPI(

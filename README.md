@@ -81,6 +81,14 @@ with no tenant context returns *nothing*, not everything. One dependency in
 without it. `tests/test_tenant_isolation.py` includes a check that every table has RLS
 forced, so a new table added without it fails CI.
 
+**The API must never connect as a superuser.** A superuser — or any role with
+`BYPASSRLS` — ignores row level security even when every table has `FORCE` set, silently,
+with all the policies still listed. That turns the tenant boundary into decoration. Two
+guards exist: the API refuses to boot in staging or production if its role can bypass RLS
+(and warns in development), and a test asserts the precondition so the rest of the
+isolation suite cannot pass vacuously. Local and CI both run the two-role setup from
+`services/api/scripts/init-roles.sql`.
+
 The single deliberate exception is `org_domains`, which needs a SELECT-only global policy
 because email→tenant routing happens before a tenant is known (FR-1.3). It exposes only
 `domain → organization_id`.

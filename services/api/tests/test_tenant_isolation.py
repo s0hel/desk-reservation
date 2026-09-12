@@ -72,3 +72,25 @@ async def test_every_org_scoped_table_has_rls_enabled(org_a, session_for):
             )
         ).all()
     assert rows == [], f"tables without FORCEd RLS: {[r[0] for r in rows]}"
+
+
+async def test_connection_role_cannot_bypass_rls(org_a, session_for):
+    """The precondition every other isolation test depends on.
+
+    A superuser (or a BYPASSRLS role) ignores row level security even when every table
+    has FORCE set. If the API connects as one, the policies are decorative and the rest
+    of this file passes while isolating nothing. Assert the precondition explicitly so
+    that misconfiguration fails loudly here instead of quietly in production.
+    """
+    async with session_for(org_a) as s:
+        is_superuser = await s.scalar(text("SELECT current_setting('is_superuser')"))
+        bypass = await s.scalar(
+            text("SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user")
+        )
+        role = await s.scalar(text("SELECT current_user"))
+
+    assert is_superuser == "off", (
+        f"connected as superuser '{role}' — RLS is not enforced. "
+        f"Point DATABASE_URL at the non-superuser application role."
+    )
+    assert bypass is False, f"role '{role}' has BYPASSRLS — RLS is not enforced"
