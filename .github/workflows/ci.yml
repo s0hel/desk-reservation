@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push: { branches: [main] }
+  pull_request:
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: deskflow_owner
+          POSTGRES_PASSWORD: deskflow
+          POSTGRES_DB: deskflow
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U deskflow_owner -d deskflow"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      ENVIRONMENT: development
+      ENABLE_DEV_LOGIN: "true"
+      # CI runs single-role. RLS is FORCEd, so isolation is still exercised (TDD §18.2).
+      DATABASE_URL: postgresql+asyncpg://deskflow_owner:deskflow@localhost:5432/deskflow
+      MIGRATION_DATABASE_URL: postgresql+psycopg://deskflow_owner:deskflow@localhost:5432/deskflow
+    defaults:
+      run: { working-directory: services/api }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - name: Lint
+        run: uv run ruff check . && uv run ruff format --check .
+      - name: Migrate
+        run: uv run alembic upgrade head
+      - name: Test
+        # Includes the booking-concurrency and tenant-isolation suites, which run on
+        # every PR by design — a regression in either is a production incident.
+        run: uv run pytest -q
+
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: pnpm/action-setup@v4
+        with: { version: 11 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: uv sync --frozen
+        working-directory: services/api
+      - name: Regenerate the API client
+        run: pnpm gen:client
+      - name: Fail if the committed client is stale
+        # The generated client is committed so the app always builds against a known
+        # contract. A schema change that forgets this step fails here, not at runtime.
+        run: git diff --exit-code packages/api-client/src
+
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run: { working-directory: apps/mobile }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 11 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+        working-directory: .
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Bundle for iOS and Android
+        run: |
+          npx expo export --platform ios --output-dir /tmp/export-ios
+          npx expo export --platform android --output-dir /tmp/export-android

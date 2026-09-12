@@ -1,0 +1,14 @@
+{
+  "name": "desk-reservation",
+  "private": true,
+  "packageManager": "pnpm@11.25.0",
+  "scripts": {
+    "gen:client": "bash scripts/gen-client.sh",
+    "lint": "pnpm -r --if-present lint",
+    "typecheck": "pnpm -r --if-present typecheck"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.4.4",
+    "typescript": "^5.6.3"
+  }
+}

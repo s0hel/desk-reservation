@@ -1,0 +1,47 @@
+[project]
+name = "deskflow-api"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30",
+    "psycopg[binary]>=3.2",
+    "alembic>=1.14",
+    "pydantic[email]>=2.9",
+    "pydantic-settings>=2.6",
+    "pyjwt[crypto]>=2.9",
+    "httpx>=0.27",
+    "redis>=5.2",
+    "structlog>=24.4",
+    "orjson>=3.10",
+    "python-multipart>=0.0.17",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.7",
+    "mypy>=1.13",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "DTZ"]  # DTZ: naive-datetime ban (TDD §5)
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+# One event loop for the whole session: the engine's connection pool is module-level,
+# and per-test loops would leave pooled connections bound to a closed loop.
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.uv]
+package = false

@@ -1,0 +1,25 @@
+# python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+# node
+node_modules/
+.pnpm-store/
+dist/
+.next/
+# expo — native dirs are build artifacts (CNG), see TDD §13.5
+apps/mobile/ios/
+apps/mobile/android/
+.expo/
+# editors
+.idea/
+.vscode/
+
+# env & local
+.env
+.env.local
+*.log
+.DS_Store
