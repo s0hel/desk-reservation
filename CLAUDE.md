@@ -178,6 +178,19 @@ native dependencies stay inside what Expo Go bundles — today just `expo-secure
 those need a development build and therefore a current Xcode. Do not treat "it runs in
 Expo Go" as evidence the dev-build path works.
 
+**Anything called from a gesture or animation handler must be a worklet.** Those run on
+the UI thread, and Reanimated cannot call an ordinary JS function there — it aborts the
+process: no red box, nothing in the Metro log, the app just quits ("Expo Go quit
+unexpectedly"). The trap is refactoring: moving inline worklet maths into a shared module
+for testability silently drops the `"worklet"` directive, and nothing in typecheck, lint,
+Jest or `expo export` notices. `src/lib/plan.ts:viewportToPlan` carries the directive and
+a test asserts it stays; apply the same rule to anything new that a handler calls.
+
+Corollary: a crash with no JS error is native. Read the reason from
+`~/Library/Logs/DiagnosticReports/Expo Go-*.ips` rather than guessing, and isolate render
+from interaction before theorising — the plan rendering fine while tapping crashed is what
+pointed at the gesture path.
+
 **Running on a physical phone needs the LAN address in two places, and one of them
 fails silently.** `apps/mobile/.env` must set `EXPO_PUBLIC_API_BASE_URL` to the Mac's LAN
 address (`ipconfig getifaddr en0`), not `localhost` — on a device localhost is the phone,
