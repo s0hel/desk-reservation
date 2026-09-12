@@ -66,7 +66,11 @@ async def test_every_org_scoped_table_has_rls_enabled(org_a, session_for):
                     FROM pg_class c
                     JOIN pg_namespace n ON n.oid = c.relnamespace
                     WHERE n.nspname = 'public' AND c.relkind = 'r'
-                      AND c.relname NOT IN ('alembic_version')
+                      -- outbox_dispatch is deliberately global: it carries only
+                      -- identifiers and scheduling state so a worker can discover
+                      -- work across tenants without reading anyone's data
+                      -- (migration 0002). Any OTHER table missing RLS is a bug.
+                      AND c.relname NOT IN ('alembic_version', 'outbox_dispatch')
                       AND (NOT c.relrowsecurity OR NOT c.relforcerowsecurity)
                 """)
             )
@@ -94,3 +98,31 @@ async def test_connection_role_cannot_bypass_rls(org_a, session_for):
         f"Point DATABASE_URL at the non-superuser application role."
     )
     assert bypass is False, f"role '{role}' has BYPASSRLS — RLS is not enforced"
+
+
+async def test_outbox_dispatch_carries_no_tenant_content(org_a, session_for):
+    """The global dispatch table is safe only while it holds identifiers and timestamps.
+    A column carrying anything about a person or a booking would turn a deliberate
+    routing exception into a data leak, so the shape is asserted rather than trusted."""
+    allowed = {
+        "outbox_id",
+        "organization_id",
+        "available_at",
+        "attempts",
+        "locked_until",
+        "processed_at",
+        "failed_at",
+        "last_error",
+        "created_at",
+    }
+    async with session_for(org_a) as s:
+        rows = (
+            await s.execute(
+                text("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_schema = 'public' AND table_name = 'outbox_dispatch'
+                """)
+            )
+        ).all()
+    actual = {r[0] for r in rows}
+    assert actual <= allowed, f"unexpected columns on the global dispatch table: {actual - allowed}"

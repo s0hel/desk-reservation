@@ -880,6 +880,18 @@ It is also the seam a calendar projection would re-enter through if it were ever
 Workers claim with `FOR UPDATE SKIP LOCKED`, exponential backoff on failure, and a dead-letter state
 that raises an alert rather than retrying forever.
 
+**Routing is separated from content, because RLS makes a cross-tenant worker impossible
+otherwise.** The outbox is tenant data, so a worker with no `app.org_id` bound sees nothing
+at all — and the obvious fix, giving the worker `BYPASSRLS`, would hand a background
+process unrestricted access to every tenant's data. Instead `outbox_dispatch` holds only
+identifiers and scheduling state, never payloads, and is deliberately not under RLS. The
+worker reads it to learn *that* a tenant has work and *which* row, then binds that tenant
+and reads the payload under RLS like any other caller. This is the same reasoning as the
+`domain_routing` policy on `org_domains` (§12.1): a routing index may be global precisely
+because it carries no tenant content. A trigger creates the dispatch row in the same
+transaction as the outbox row, so the two cannot diverge, and a test asserts the dispatch
+table's column list so the exception cannot quietly grow into a leak.
+
 ### 15.2 Scheduled jobs
 
 | Job | Cadence | Purpose |

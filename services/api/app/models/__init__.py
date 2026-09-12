@@ -1,5 +1,5 @@
 from app.models.booking import Absence, Booking, BookingAttendee, BookingStatus, CheckinEvent
-from app.models.ops import AuditLog, Outbox
+from app.models.ops import AuditLog, Outbox, OutboxDispatch
 from app.models.org import (
     Device,
     Group,
@@ -31,6 +31,7 @@ __all__ = [
     "Organization",
     "OrgDomain",
     "Outbox",
+    "OutboxDispatch",
     "Policy",
     "RefreshToken",
     "Resource",

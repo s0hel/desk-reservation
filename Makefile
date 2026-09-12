@@ -1,4 +1,4 @@
-.PHONY: up down db-reset migrate seed api test test-db-drop lint gen-client
+.PHONY: up down db-reset migrate seed api worker test test-db-drop lint gen-client
 
 up:            ## start postgres, redis, mailpit
 	docker compose up -d --wait
@@ -17,6 +17,9 @@ seed:          ## one org, two floors, 120 desks, 6 rooms (TDD §21)
 
 api:
 	cd services/api && uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+worker:        ## drain the outbox: notifications for bookings and cancellations
+	cd services/api && uv run python -m app.workers.outbox
 
 test:          ## runs against deskflow_test, which is recreated each run
 	cd services/api && uv run pytest -q
