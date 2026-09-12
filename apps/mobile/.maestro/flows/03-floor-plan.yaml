@@ -1,0 +1,97 @@
+# Tap-to-book on the floor plan — the one screen whose failures are invisible to
+# typecheck, lint and Jest. The bug this exists for: viewportToPlan lost its "worklet"
+# directive in a refactor. It runs inside a gesture handler, so Reanimated aborted the
+# process natively on the first tap — no red box, nothing in the Metro log. ANY tap on
+# the plan reproduces it, and a dead app fails every assertion after it.
+#
+# The plan viewport maps 1:1 onto normalized plan space at rest, so a desk seeded at
+# (x, y) is at (x%, y%) of the element (0.08 + col * 0.075, 0.15 + row * 0.16 — see
+# services/api/app/seed.py).
+#
+# NOT covered here: hit testing at scale != 1, which is where the other shipped bug
+# lived (the detector was attached to the transformed view, so the inverse transform
+# was applied twice — the identity at scale 1, wrong after the first pinch). Maestro
+# cannot reach a zoomed state on this stack: it has no pinch, and its `doubleTapOn`
+# arrives as two separate taps well outside the gesture handler's double-tap window,
+# so the single-tap handler runs twice and nothing zooms. That case stays covered by
+# src/lib/__tests__/plan.test.ts, which is why the maths lives outside the component.
+#
+# The desk is booked FIRST, from the list, so that a tap on it lands on a desk that is
+# already yours: the resulting alert is titled with the desk's code, which is what makes
+# "the hit test resolved to THIS desk and no other" assertable without booking anything.
+appId: host.exp.Exponent
+name: Tap to book on the floor plan
+tags:
+  - smoke
+env:
+  EXPO_URL: exp://127.0.0.1:8081
+  USER_EMAIL: priya.raman@example.com
+  # Seeded at (0.08 + col * 0.075, 0.15 + row * 0.16) — see services/api/app/seed.py.
+  # Column 6 of row C is the desk closest to the centre of the plan, which is what
+  # keeps it on screen at 2.5x zoom.
+  DESK: 4F-C-06
+---
+- runFlow: ../subflows/pick-open-day.yaml
+- runFlow: ../subflows/open-app.yaml
+- runFlow:
+    file: ../subflows/clear-day.yaml
+    env:
+      DAY_ISO: ${output.dayIso}
+- runFlow:
+    file: ../subflows/open-floor.yaml
+    env:
+      DAY_LABEL: ${output.dayLabel}
+
+- tapOn: "List view"
+# Row 30 of 60 — Maestro only matches what is actually on screen.
+- scrollUntilVisible:
+    element:
+      text: "${DESK}, Available"
+    direction: DOWN
+    timeout: 30000
+- tapOn: "${DESK}, Available"
+- assertVisible: "Booked"
+- tapOn: "OK"
+
+- tapOn: "Floor plan view"
+- extendedWaitUntil:
+    visible:
+      id: "floor-plan"
+    timeout: 30000
+- assertVisible: ".*desks free · pinch to zoom.*"
+
+# At rest the viewport is plan space: 4F-C-06 sits at (0.455, 0.47).
+- tapOn:
+    id: "floor-plan"
+    point: "46%,47%"
+- assertVisible: "${DESK}"
+- assertVisible: "This is your booking."
+- tapOn: "OK"
+
+# A gap between rows C and D. Nothing is within the touch radius, so nothing should
+# open — a hit test that fires here would book whatever it felt like.
+- tapOn:
+    id: "floor-plan"
+    point: "46%,55%"
+- assertNotVisible: "This is your booking."
+- assertVisible: ".*desks free · pinch to zoom.*"
+
+# A different desk entirely: 4F-A-01 at (0.08, 0.15). It is free, so the one-desk-per-day
+# policy refuses it — which is the point. A refusal here proves the tap resolved to some
+# desk OTHER than the one already booked, and a plan whose hit test was stuck on the
+# nearest-to-centre desk would answer "This is your booking." instead. Nothing is
+# mutated: the booking never happens.
+- tapOn:
+    id: "floor-plan"
+    point: "8%,15%"
+- assertVisible: "Can't book that"
+- assertVisible: ".*already have a desk.*"
+- tapOn: "OK"
+
+# Leave the day as it was found.
+- tapOn: "Spaces"
+- tapOn: "Today, tab.*"
+- runFlow:
+    file: ../subflows/clear-day.yaml
+    env:
+      DAY_ISO: ${output.dayIso}

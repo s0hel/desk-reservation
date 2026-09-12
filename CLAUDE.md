@@ -34,6 +34,7 @@ make seed           # Example Corp: Berlin HQ, 2 floors, 120 desks, 6 rooms
 make api            # uvicorn --reload, http://localhost:8000 (docs at /docs)
 make db-reset        # drop the volume, migrate, reseed
 make test           # cd services/api && uv run pytest -q
+make test-e2e        # drive the real app in the iOS simulator (Maestro)
 make lint           # ruff check + ruff format --check
 pnpm gen:client      # regenerate packages/api-client from the live OpenAPI schema
 ```
@@ -48,6 +49,13 @@ Mobile: `cd apps/mobile && npx expo start`. Sign in with any seeded address, e.g
 `run:android`) — Expo Go can't load the custom native config later phases need. On a
 physical device, set `EXPO_PUBLIC_API_BASE_URL` in `apps/mobile/.env` to your LAN IP, not
 `localhost`.
+
+End-to-end flows live in `apps/mobile/.maestro` and drive the app in the simulator via
+Expo Go; `apps/mobile/.maestro/README.md` covers what they cover, what they can't, and
+the XCUITest behaviours that will otherwise look like app bugs. They need the whole
+stack up (`make up && make api`, plus Metro) and are not part of CI — run them before
+shipping anything that touches booking or the floor plan, because **every UI bug in
+this app so far has been invisible to typecheck, lint and Jest.**
 
 CI (`.github/workflows/ci.yml`) runs three independent jobs: `api` (lint, migrate, pytest —
 against the non-superuser role, see below), `contract` (regenerates the client and fails if
@@ -217,6 +225,14 @@ form (`({ pressed }) => [...]`) does not survive `asChild` and silently drops th
 `<name>_test` from the configured URLs and drops and recreates it on every run; it refuses
 to start if that resolves back to the development database. Override with
 `TEST_DATABASE_URL` / `TEST_MIGRATION_DATABASE_URL`. `make test-db-drop` removes it.
+
+**Route changes must be driven by the route guard, not by `router.replace`.**
+`app/_layout.tsx` wraps the authenticated screens in `<Stack.Protected guard={!!token}>`
+and the sign-in screen in the inverse. Deciding the route once on mount is what shipped
+first and it was wrong: signing out cleared the token and navigated nowhere, leaving the
+app on the tabs with every field blank and no way back short of relaunching. Adding an
+imperative `replace` to the sign-out button would have left the same hole open for a
+refresh token rejected mid-session. Do not reintroduce navigation on either side.
 
 **React Native Testing Library does not work here.** `@testing-library/react-native`
 14.0.1 returns an empty object from `render()` under Expo SDK 57 / React 19.2, with or

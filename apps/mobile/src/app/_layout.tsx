@@ -4,7 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useState } from "react";
 
-import { AuthProvider } from "@/lib/auth";
+import { AuthProvider, useAuth } from "@/lib/auth";
 import { colors } from "@/lib/theme";
 
 export default function RootLayout() {
@@ -21,21 +21,46 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={client}>
-      <AuthProvider>
-        <StatusBar style="light" />
-        <Stack
-          screenOptions={{
-            headerStyle: { backgroundColor: colors.bg },
-            headerTintColor: colors.text,
-            contentStyle: { backgroundColor: colors.bg },
-          }}
-        >
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="sign-in" options={{ headerShown: false }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        </Stack>
-      </AuthProvider>
+        <AuthProvider>
+          <StatusBar style="light" />
+          <RootStack />
+        </AuthProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>
+  );
+}
+
+/**
+ * Which routes exist is derived from whether we hold a token, rather than decided once
+ * on mount in `index.tsx`.
+ *
+ * Deciding it once is not enough: signing out cleared the token but navigated nowhere,
+ * so the app sat on the authenticated tabs with every field blanked and no way back to
+ * sign-in short of relaunching. The same hole opens whenever the refresh token is
+ * rejected mid-session. A guard closes both, because unmounting the screen you are on
+ * is what forces the navigation.
+ *
+ * Separate from AuthProvider on purpose — useAuth has to run under the provider.
+ */
+function RootStack() {
+  const { token } = useAuth();
+
+  return (
+    <Stack
+      screenOptions={{
+        headerStyle: { backgroundColor: colors.bg },
+        headerTintColor: colors.text,
+        contentStyle: { backgroundColor: colors.bg },
+      }}
+    >
+      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Protected guard={!token}>
+        <Stack.Screen name="sign-in" options={{ headerShown: false }} />
+      </Stack.Protected>
+      <Stack.Protected guard={!!token}>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="floor/[id]" />
+      </Stack.Protected>
+    </Stack>
   );
 }

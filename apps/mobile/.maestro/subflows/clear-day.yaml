@@ -1,0 +1,17 @@
+# From the Today tab, cancel this user's booking for DAY_ISO if there is one.
+#
+# Policy allows one desk per person per day (DeskPerDayLimit), so a leftover booking
+# does not fail the next run's booking step with a plain "unavailable" — it fails it
+# with a policy refusal, which reads like a broken test rather than dirty state. At
+# most one booking can exist for the day, so a single conditional cancel is enough.
+appId: host.exp.Exponent
+---
+- runFlow:
+    when:
+      visible: "Cancel booking for 4F-.* on ${DAY_ISO}"
+    commands:
+      - tapOn: "Cancel booking for 4F-.* on ${DAY_ISO}"
+      - tapOn: "^Cancel booking$"
+      - extendedWaitUntil:
+          notVisible: "Cancel booking for 4F-.* on ${DAY_ISO}"
+          timeout: 30000

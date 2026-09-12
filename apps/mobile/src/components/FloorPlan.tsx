@@ -164,7 +164,7 @@ export function FloorPlan({ resources, zones = [], aspectRatio = 1.5, onSelect }
     // the inverse transform below double-corrects them — which happens to be identity
     // at scale 1, so it looks correct until the first pinch.
     <GestureDetector gesture={gesture}>
-      <View style={[styles.viewport, { height: planHeight }]}>
+      <View testID="floor-plan" style={[styles.viewport, { height: planHeight }]}>
         <Animated.View style={[styles.canvas, animatedStyle]} pointerEvents="none">
           <Svg width={planWidth} height={planHeight}>
             <Rect x={0} y={0} width={planWidth} height={planHeight} fill={colors.card} />

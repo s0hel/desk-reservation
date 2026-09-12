@@ -64,6 +64,8 @@ npx expo run:android
 | `make migrate` / `make seed` | |
 | `make api` | API with reload |
 | `make test` | pytest — includes concurrency and tenant-isolation suites |
+| `make test-mobile` | jest, `apps/mobile/src/lib` |
+| `make test-e2e` | Maestro flows against the iOS simulator ([details](apps/mobile/.maestro/README.md)) |
 | `make test-db-drop` | remove the test database (recreated on the next run) |
 | `make lint` | ruff check + format |
 | `pnpm gen:client` | regenerate `packages/api-client` from the OpenAPI schema |

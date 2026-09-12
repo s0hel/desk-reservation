@@ -1,0 +1,15 @@
+# From the tabs, open Floor 4 on an open day. Expected env: DAY_LABEL.
+appId: host.exp.Exponent
+---
+- tapOn: "Spaces, tab.*"
+- extendedWaitUntil:
+    visible: "Floor 4, view resources"
+    timeout: 30000
+- tapOn: "Floor 4, view resources"
+
+# The date cell reads "Today, Mon 14" for today and "Mon 14" otherwise, so match on
+# the suffix rather than branching.
+- extendedWaitUntil:
+    visible: ".*${DAY_LABEL}"
+    timeout: 30000
+- tapOn: ".*${DAY_LABEL}"

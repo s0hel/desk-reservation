@@ -1,4 +1,4 @@
-.PHONY: up down db-reset migrate seed api worker test test-mobile test-all test-db-drop lint gen-client
+.PHONY: up down db-reset migrate seed api worker test test-mobile test-e2e test-all test-db-drop lint gen-client
 
 up:            ## start postgres, redis, mailpit
 	docker compose up -d --wait
@@ -26,6 +26,9 @@ test:          ## api suite; runs against deskflow_test, recreated each run
 
 test-mobile:   ## mobile unit tests (jest)
 	cd apps/mobile && npx jest
+
+test-e2e:      ## drive the app in the iOS simulator (needs make up, make api and Metro)
+	bash scripts/e2e.sh
 
 test-all: test test-mobile
 

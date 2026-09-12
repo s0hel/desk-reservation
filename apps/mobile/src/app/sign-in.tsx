@@ -1,4 +1,3 @@
-import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text,
@@ -11,7 +10,6 @@ import { colors, spacing } from "@/lib/theme";
 
 export default function SignIn() {
   const { signIn } = useAuth();
-  const router = useRouter();
   const [email, setEmail] = useState("priya.raman@example.com");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,8 +18,9 @@ export default function SignIn() {
     setBusy(true);
     setError(null);
     try {
+      // No navigation here: the route guard in _layout.tsx owns it, so signing in
+      // and signing out go through exactly one mechanism.
       await signIn(email.trim());
-      router.replace("/(tabs)");
     } catch (e) {
       // Phase 1 renders from violation codes instead of `detail` (TDD §11).
       setError(e instanceof ProblemError ? e.detail : "Could not reach the API");

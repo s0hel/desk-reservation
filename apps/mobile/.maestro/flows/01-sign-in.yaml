@@ -1,0 +1,22 @@
+# The app signs in, remembers who you are, and signs out again.
+appId: host.exp.Exponent
+name: Sign in and out
+tags:
+  - smoke
+env:
+  EXPO_URL: exp://127.0.0.1:8081
+  USER_EMAIL: priya.raman@example.com
+---
+- runFlow: ../subflows/open-app.yaml
+
+- assertVisible: "Hi Priya"
+- assertVisible: "Berlin HQ"
+
+# The tab bar is native (react-native-screens), so its accessibility text is UIKit's
+# "<title>, tab, <n> of <m>" and not the plain title.
+- tapOn: "Me, tab.*"
+- assertVisible: "${USER_EMAIL}"
+- assertVisible: "employee"
+
+- tapOn: "Sign out"
+- assertVisible: "Sign in with your work email"

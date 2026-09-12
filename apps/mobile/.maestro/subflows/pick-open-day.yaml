@@ -1,0 +1,21 @@
+# Choose the next day the office is open, as both the DateStrip's accessibility label
+# ("Mon 14") and the ISO date the booking cards carry ("2026-09-14").
+#
+# The seeded site opens Mon-Fri (services/api/app/seed.py:OPENING_HOURS), so on a
+# weekend today's availability is a policy refusal and nothing is bookable. Hard-coding
+# a date would make these flows pass on Tuesday and fail on Saturday, so derive it.
+appId: host.exp.Exponent
+---
+- evalScript: |
+    ${
+      const NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const pad = (n) => ('0' + n).slice(-2);
+      const day = new Date();
+      while (day.getDay() === 0 || day.getDay() === 6) {
+        day.setDate(day.getDate() + 1);
+      }
+      // Locale-independent on purpose: toLocaleDateString in Maestro's JS engine is
+      // not guaranteed to agree with the simulator's.
+      output.dayLabel = NAMES[day.getDay()] + ' ' + day.getDate();
+      output.dayIso = day.getFullYear() + '-' + pad(day.getMonth() + 1) + '-' + pad(day.getDate());
+    }
