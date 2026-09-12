@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useState } from "react";
 
 import { AuthProvider } from "@/lib/auth";
@@ -18,7 +19,8 @@ export default function RootLayout() {
   );
 
   return (
-    <QueryClientProvider client={client}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <QueryClientProvider client={client}>
       <AuthProvider>
         <StatusBar style="light" />
         <Stack
@@ -33,6 +35,7 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         </Stack>
       </AuthProvider>
-    </QueryClientProvider>
+      </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }

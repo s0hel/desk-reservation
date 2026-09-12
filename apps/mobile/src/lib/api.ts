@@ -47,10 +47,14 @@ export type ResourceAvailability = {
   out_of_service_reason: string | null; occupied_by_me: boolean;
 };
 
+export type Zone = {
+  id: string; name: string; polygon: number[][]; color: string | null;
+};
+
 export type Availability = {
   floor_id: string; local_date: string; slot: Slot;
   starts_at: string; ends_at: string; site_timezone: string;
-  total: number; available: number; resources: ResourceAvailability[];
+  total: number; available: number; resources: ResourceAvailability[]; zones: Zone[];
 };
 
 export type Slot = "full_day" | "am" | "pm" | "custom";

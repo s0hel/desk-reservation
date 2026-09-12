@@ -241,6 +241,8 @@ export interface components {
             available: number;
             /** Resources */
             resources: components["schemas"]["ResourceAvailabilityOut"][];
+            /** Zones */
+            zones: components["schemas"]["ZoneOut"][];
         };
         /** BookingOut */
         BookingOut: {
@@ -500,6 +502,20 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** ZoneOut */
+        ZoneOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Polygon */
+            polygon: unknown[];
+            /** Color */
+            color: string | null;
         };
     };
     responses: never;

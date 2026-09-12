@@ -6,6 +6,7 @@ import {
 } from "react-native";
 
 import { DateStrip } from "@/components/DateStrip";
+import { FloorPlan } from "@/components/FloorPlan";
 import { api, newIdempotencyKey, ProblemError, type ResourceAvailability } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { formatDate, toLocalDate } from "@/lib/dates";
@@ -22,6 +23,7 @@ export default function FloorScreen() {
   const { token } = useAuth();
   const queryClient = useQueryClient();
   const [kind, setKind] = useState<"desk" | "room">("desk");
+  const [view, setView] = useState<"plan" | "list">("plan");
   const [date, setDate] = useState(toLocalDate(new Date()));
 
   const availability = useQuery({
@@ -82,15 +84,57 @@ export default function FloorScreen() {
               </Text>
             </Pressable>
           ))}
+          <View style={{ flex: 1 }} />
+          {/* The list is a first-class equal of the plan, not a fallback: it is what
+              screen-reader users get and what renders while data loads (FR-2.4). */}
+          {(["plan", "list"] as const).map((v) => (
+            <Pressable
+              key={v}
+              onPress={() => setView(v)}
+              style={[styles.tab, view === v && styles.tabActive]}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: view === v }}
+              accessibilityLabel={v === "plan" ? "Floor plan view" : "List view"}
+            >
+              <Text style={[styles.tabText, view === v && styles.tabTextActive]}>
+                {v === "plan" ? "Plan" : "List"}
+              </Text>
+            </Pressable>
+          ))}
         </View>
 
+        {view === "plan" && data ? (
+          <View>
+            <FloorPlan
+              resources={data.resources}
+              zones={data.zones}
+              onSelect={(r) => {
+                if (r.available) book.mutate(r);
+                else
+                  Alert.alert(
+                    r.code,
+                    r.occupied_by_me
+                      ? "This is your booking."
+                      : r.bookable
+                        ? "Already taken for this day."
+                        : r.out_of_service_reason || "Out of service.",
+                  );
+              }}
+            />
+            <Text style={styles.planHint}>
+              {data.available} of {data.total} {kind}s free · pinch to zoom, double tap to reset
+            </Text>
+          </View>
+        ) : null}
+
         <FlatList
-          data={data?.resources ?? []}
+          data={view === "list" ? (data?.resources ?? []) : []}
           keyExtractor={(r) => r.id}
           contentContainerStyle={{ padding: spacing(2) }}
           refreshing={availability.isFetching}
           onRefresh={() => availability.refetch()}
           ListHeaderComponent={
+            view !== "list" ? null : (
             <Text style={styles.count}>
               {data
                 ? `${data.available} of ${data.total} ${kind}s free`
@@ -98,9 +142,10 @@ export default function FloorScreen() {
                   ? "Loading…"
                   : ""}
             </Text>
+            )
           }
           ListEmptyComponent={
-            availability.isLoading ? null : (
+            availability.isLoading || (view === "plan" && data) ? null : (
               <Text style={styles.count}>
                 {/* A closed day, a blackout or a full office all arrive here as a
                     refusal with a code — say which, rather than showing an empty list
@@ -196,6 +241,10 @@ const styles = StyleSheet.create({
   tabText: { color: colors.muted, fontWeight: "600" },
   tabTextActive: { color: "#fff" },
   count: { color: colors.muted, marginBottom: spacing(1) },
+  planHint: {
+    color: colors.muted, fontSize: 12, textAlign: "center",
+    paddingVertical: spacing(1), paddingHorizontal: spacing(2),
+  },
   row: {
     flexDirection: "row", alignItems: "center", gap: spacing(1.5),
     backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1,

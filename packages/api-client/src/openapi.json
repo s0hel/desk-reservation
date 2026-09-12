@@ -692,6 +692,13 @@
             },
             "type": "array",
             "title": "Resources"
+          },
+          "zones": {
+            "items": {
+              "$ref": "#/components/schemas/ZoneOut"
+            },
+            "type": "array",
+            "title": "Zones"
           }
         },
         "type": "object",
@@ -704,7 +711,8 @@
           "site_timezone",
           "total",
           "available",
-          "resources"
+          "resources",
+          "zones"
         ],
         "title": "AvailabilityOut"
       },
@@ -1343,6 +1351,43 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "ZoneOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "polygon": {
+            "items": {},
+            "type": "array",
+            "title": "Polygon"
+          },
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "polygon",
+          "color"
+        ],
+        "title": "ZoneOut"
       }
     }
   }

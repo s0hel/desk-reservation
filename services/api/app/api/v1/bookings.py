@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import Principal, current_principal, current_user, db
 from app.core.errors import NotFound
-from app.models import Booking, Floor, Resource, Site, User
+from app.models import Booking, Floor, Resource, Site, User, Zone
 from app.services import availability as availability_service
 from app.services.booking import BookingRequest, cancel_booking, create_booking, resolve_window
 
@@ -37,6 +37,13 @@ class ResourceAvailabilityOut(BaseModel):
     occupied_by_me: bool
 
 
+class ZoneOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    polygon: list
+    color: str | None
+
+
 class AvailabilityOut(BaseModel):
     floor_id: uuid.UUID
     local_date: date
@@ -47,6 +54,8 @@ class AvailabilityOut(BaseModel):
     total: int
     available: int
     resources: list[ResourceAvailabilityOut]
+    #: Returned alongside resources because the plan needs both to draw one frame.
+    zones: list[ZoneOut]
 
 
 class BookingOut(BaseModel):
@@ -121,6 +130,7 @@ async def floor_availability(
         min_capacity=min_capacity,
         filters=filters,
     )
+    zones = await session.scalars(select(Zone).where(Zone.floor_id == floor_id))
     return AvailabilityOut(
         floor_id=floor_id,
         local_date=local_date,
@@ -146,6 +156,9 @@ async def floor_availability(
                 occupied_by_me=r.occupied_by == user.id,
             )
             for r in rows
+        ],
+        zones=[
+            ZoneOut(id=z.id, name=z.name, polygon=z.polygon or [], color=z.color) for z in zones
         ],
     )
 
