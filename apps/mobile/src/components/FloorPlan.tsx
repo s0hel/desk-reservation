@@ -31,6 +31,9 @@ import Animated, {
 import Svg, { Circle, G, Polygon, Rect, Text as SvgText } from "react-native-svg";
 
 import type { ResourceAvailability } from "@/lib/api";
+import {
+  NODE_RADIUS, buildIndex, findNearest, shortLabel, viewportToPlan,
+} from "@/lib/plan";
 import { colors } from "@/lib/theme";
 
 export type PlanZone = { id: string; name: string; polygon: number[][]; color?: string | null };
@@ -44,20 +47,6 @@ type Props = {
 
 const MIN_SCALE = 0.6;
 const MAX_SCALE = 6;
-/** Below this scale, labels are noise — draw dots only. */
-const LABEL_SCALE_THRESHOLD = 1.6;
-/** Grid buckets are roughly three desk widths, so a tap inspects a handful of nodes. */
-const GRID = 12;
-const NODE_RADIUS = 0.011;
-/** Fingers are imprecise; allow a little slop beyond the drawn node. */
-const TOUCH_SLOP = 1.8;
-
-/** "4F-A-01" -> "A-01". Dropping only the floor prefix keeps labels unique; taking
- *  just the trailing number made every row read 01..12. */
-function shortLabel(code: string): string {
-  const parts = code.split("-");
-  return parts.length > 2 ? parts.slice(1).join("-") : code;
-}
 
 function stateOf(r: ResourceAvailability): "free" | "taken" | "yours" | "unavailable" {
   if (r.occupied_by_me) return "yours";
@@ -71,20 +60,6 @@ const FILL = {
   yours: colors.accent,
   unavailable: colors.danger,
 } as const;
-
-/** Uniform spatial grid over plan space, built once per resource set. */
-function buildIndex(resources: ResourceAvailability[]) {
-  const cells = new Map<string, ResourceAvailability[]>();
-  for (const r of resources) {
-    const x = r.position?.x ?? 0;
-    const y = r.position?.y ?? 0;
-    const key = `${Math.floor(x * GRID)}:${Math.floor(y * GRID)}`;
-    const bucket = cells.get(key);
-    if (bucket) bucket.push(r);
-    else cells.set(key, [r]);
-  }
-  return cells;
-}
 
 export function FloorPlan({ resources, zones = [], aspectRatio = 1.5, onSelect }: Props) {
   const { width } = useWindowDimensions();
@@ -110,27 +85,9 @@ export function FloorPlan({ resources, zones = [], aspectRatio = 1.5, onSelect }
       if (now - lastTap.current < 120) return;
       lastTap.current = now;
 
-      const cx = Math.floor(px * GRID);
-      const cy = Math.floor(py * GRID);
-      let best: ResourceAvailability | null = null;
-      let bestDist = Infinity;
-      // Neighbouring buckets too, since a node near an edge belongs to one cell but
-      // its touch target spills into the next.
-      for (let gx = cx - 1; gx <= cx + 1; gx++) {
-        for (let gy = cy - 1; gy <= cy + 1; gy++) {
-          for (const r of index.get(`${gx}:${gy}`) ?? []) {
-            const dx = (r.position?.x ?? 0) - px;
-            const dy = (r.position?.y ?? 0) - py;
-            const d = Math.hypot(dx, dy);
-            if (d < bestDist) {
-              bestDist = d;
-              best = r;
-            }
-          }
-        }
-      }
-      if (best && bestDist <= NODE_RADIUS * TOUCH_SLOP) {
-        const fresh = byId.get(best.id);
+      const hit = findNearest(index, { x: px, y: py });
+      if (hit) {
+        const fresh = byId.get(hit.id);
         if (fresh) onSelect(fresh);
       }
     },
@@ -158,11 +115,13 @@ export function FloorPlan({ resources, zones = [], aspectRatio = 1.5, onSelect }
   const tap = Gesture.Tap()
     .maxDuration(250)
     .onEnd((e) => {
-      // Invert the current transform to recover plan-space coordinates. Reading the
-      // shared values here (on the UI thread) is what keeps this correct mid-gesture.
-      const px = (e.x - tx.value - planWidth / 2) / scale.value + planWidth / 2;
-      const py = (e.y - ty.value - planHeight / 2) / scale.value + planHeight / 2;
-      runOnJS(hitTest)(px / planWidth, py / planHeight);
+      // Recover plan-space coordinates from the live transform. Reading the shared
+      // values here (on the UI thread) is what keeps this correct mid-gesture.
+      const point = viewportToPlan(
+        { x: e.x, y: e.y },
+        { tx: tx.value, ty: ty.value, scale: scale.value, width: planWidth, height: planHeight },
+      );
+      runOnJS(hitTest)(point.x, point.y);
     });
 
   const doubleTap = Gesture.Tap()

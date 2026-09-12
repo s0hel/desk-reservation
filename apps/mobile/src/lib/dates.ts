@@ -29,7 +29,11 @@ export function upcomingDays(count = 7, from = new Date()): DayOption[] {
 /** Render a site-local time-of-day from an ISO instant, in the SITE's zone. */
 export function timeInZone(iso: string, timeZone: string | null): string {
   try {
-    return new Date(iso).toLocaleTimeString(undefined, {
+    const at = new Date(iso);
+    // An invalid Date does not throw here — toLocaleTimeString returns the literal
+    // string "Invalid Date", which would render to the user as-is.
+    if (Number.isNaN(at.getTime())) return "";
+    return at.toLocaleTimeString(undefined, {
       hour: "2-digit",
       minute: "2-digit",
       ...(timeZone ? { timeZone } : {}),

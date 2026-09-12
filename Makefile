@@ -1,4 +1,4 @@
-.PHONY: up down db-reset migrate seed api worker test test-db-drop lint gen-client
+.PHONY: up down db-reset migrate seed api worker test test-mobile test-all test-db-drop lint gen-client
 
 up:            ## start postgres, redis, mailpit
 	docker compose up -d --wait
@@ -21,8 +21,13 @@ api:
 worker:        ## drain the outbox: notifications for bookings and cancellations
 	cd services/api && uv run python -m app.workers.outbox
 
-test:          ## runs against deskflow_test, which is recreated each run
+test:          ## api suite; runs against deskflow_test, recreated each run
 	cd services/api && uv run pytest -q
+
+test-mobile:   ## mobile unit tests (jest)
+	cd apps/mobile && npx jest
+
+test-all: test test-mobile
 
 test-db-drop:  ## remove the test database; the next `make test` recreates it
 	docker compose exec -T postgres psql -U deskflow_owner -d postgres \

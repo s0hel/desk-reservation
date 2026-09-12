@@ -77,6 +77,8 @@ jobs:
         working-directory: .
       - name: Typecheck
         run: npx tsc --noEmit
+      - name: Test
+        run: npx jest --ci
       - name: Bundle for iOS and Android
         run: |
           npx expo export --platform ios --output-dir /tmp/export-ios

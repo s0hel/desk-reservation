@@ -191,5 +191,11 @@ form (`({ pressed }) => [...]`) does not survive `asChild` and silently drops th
 to start if that resolves back to the development database. Override with
 `TEST_DATABASE_URL` / `TEST_MIGRATION_DATABASE_URL`. `make test-db-drop` removes it.
 
+**React Native Testing Library does not work here.** `@testing-library/react-native`
+14.0.1 returns an empty object from `render()` under Expo SDK 57 / React 19.2, with or
+without a matching `react-test-renderer`. Component tests are therefore absent; the Jest
+suite covers pure logic only (`src/lib`), and UI behaviour is verified by driving the
+simulator. Re-check on the next SDK upgrade before assuming a component test will run.
+
 **Simulator screenshots are scaled.** The tap coordinate space is device points
 (402x874 on an iPhone 16 Pro), not screenshot pixels — scale coordinates before tapping.
