@@ -64,8 +64,21 @@ npx expo run:android
 | `make migrate` / `make seed` | |
 | `make api` | API with reload |
 | `make test` | pytest — includes concurrency and tenant-isolation suites |
+| `make test-db-drop` | remove the test database (recreated on the next run) |
 | `make lint` | ruff check + format |
 | `pnpm gen:client` | regenerate `packages/api-client` from the OpenAPI schema |
+
+## Tests do not touch your development data
+
+The suite runs against `deskflow_test`, a separate database derived from `DATABASE_URL`
+and **dropped and recreated on every run**. Tests create organizations, users and
+resources constantly; sharing the development database left dozens of junk tenants behind
+and would have made seeded utilization figures meaningless once analytics exist.
+
+A separate database rather than a separate schema, because extensions, role grants and
+database-level privileges are all per-database — this keeps the test environment a
+faithful copy of production rather than a variant of it. `tests/conftest.py` refuses to
+run if the test URL resolves back to the development database.
 
 ## Things that are load-bearing
 
