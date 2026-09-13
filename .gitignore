@@ -10,6 +10,7 @@ node_modules/
 .pnpm-store/
 dist/
 .next/
+*.tsbuildinfo
 # expo — native dirs are build artifacts (CNG), see TDD §13.5
 apps/mobile/ios/
 apps/mobile/android/
