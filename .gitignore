@@ -11,6 +11,7 @@ node_modules/
 dist/
 .next/
 *.tsbuildinfo
+next-env.d.ts
 # expo — native dirs are build artifacts (CNG), see TDD §13.5
 apps/mobile/ios/
 apps/mobile/android/

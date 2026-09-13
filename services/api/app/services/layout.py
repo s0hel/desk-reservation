@@ -336,6 +336,8 @@ class PublishPlan:
     zone_updates: list[tuple[Zone, LayoutZone]] = field(default_factory=list)
     zone_deletes: list[Zone] = field(default_factory=list)
     orphans: list[OrphanedResource] = field(default_factory=list)
+    #: The draft points at a different plan image than the published floor.
+    plan_changed: bool = False
     aspect_ratio_change: tuple[float, float] | None = None
 
     @property
@@ -351,8 +353,27 @@ class PublishPlan:
             or self.zone_creates
             or self.zone_updates
             or self.zone_deletes
-            or self.aspect_ratio_change
+            # Replacing the plan image is a publishable change on its own. Tracking only
+            # the aspect-ratio WARNING missed the common case entirely: re-scanning the
+            # same floor keeps the ratio, so uploading a new plan and pressing publish
+            # reported "nothing to publish" and silently did nothing.
+            or self.plan_changed
         )
+
+
+def _normalized_attributes(kind: str, attributes: dict | None) -> dict:
+    """Attributes as they would be stored, for comparison only.
+
+    Saving a draft fills in attribute defaults, so a seeded desk carrying
+    `{"dock": "usb_c"}` becomes a draft item carrying all six desk fields. Comparing
+    those two raw makes every resource on the floor look edited — the preflight said
+    "66 resources changed" on a floor where six had been touched. Normalizing both
+    sides is what makes the diff describe the admin's edits rather than the schema's.
+    """
+    normalized, problems = attribute_schemas.validate(kind, attributes or {}, where="")
+    # Invalid stored attributes (an older schema, a hand-written row) compare raw rather
+    # than as {}, which would report them as changed on every publish forever.
+    return attributes or {} if problems else normalized
 
 
 def _changed(live: Resource, draft: LayoutResource) -> bool:
@@ -375,7 +396,8 @@ def _changed(live: Resource, draft: LayoutResource) -> bool:
         or (live.name or None) != (draft.name or None)
         or live.kind != draft.kind
         or live.capacity != draft.capacity
-        or (live.attributes or {}) != draft.attributes
+        or _normalized_attributes(live.kind, live.attributes)
+        != _normalized_attributes(draft.kind, draft.attributes)
         or live_zone_key != draft.zone_key
         or live.bookable != draft.bookable
         or (live.out_of_service_reason or None) != (draft.out_of_service_reason or None)
@@ -463,7 +485,8 @@ async def build_plan(session: AsyncSession, floor: Floor, layout: FloorLayout) -
 
     # A desk that only moves keeps its bookings — its identity is its row, not its
     # coordinates — so movement is deliberately not an orphan case.
-    if layout.plan_asset_id != floor.plan_asset_id and floor.plan_width_px and floor.plan_height_px:
+    if layout.plan_asset_id != floor.plan_asset_id:
+        plan.plan_changed = True
         incoming = (
             await session.scalar(
                 select(FloorPlanAsset).where(FloorPlanAsset.id == layout.plan_asset_id)
@@ -471,7 +494,7 @@ async def build_plan(session: AsyncSession, floor: Floor, layout: FloorLayout) -
             if layout.plan_asset_id
             else None
         )
-        if incoming and incoming.height_px:
+        if incoming and incoming.height_px and floor.plan_width_px and floor.plan_height_px:
             was = floor.plan_width_px / floor.plan_height_px
             now = incoming.width_px / incoming.height_px
             # 1% tolerance: a rescan is never pixel-identical, and warning about a
@@ -679,14 +702,15 @@ async def publish(
     floor.published_at = now_utc()
     await session.flush()
 
-    # The draft is now stale in exactly one way that matters: new items have real ids.
-    # Regenerating it from live rows is simpler than patching keys, and it means a
-    # reopened editor and a fresh one show the same thing.
-    draft = await get_draft(session, floor)
-    if draft is not None:
-        draft.layout = (await layout_from_live(session, floor)).model_dump(mode="json")
-        draft.base_version += 1
-        draft.updated_by_user_id = actor.id
+    # Discard the draft rather than regenerate it from the live rows.
+    #
+    # Regenerating produces an identical document, which sounds harmless and is not:
+    # it means a draft row exists on every floor that has ever been published, so
+    # "has a draft" stops meaning "has unpublished changes" and the console reports a
+    # freshly published floor as still having work outstanding. Dropping it makes the
+    # presence of a draft the signal itself, and `current_layout` falls back to the
+    # live rows — whose ids are the keys the editor needs anyway.
+    await discard_draft(session, floor)
     await session.flush()
     return plan
 
@@ -709,6 +733,7 @@ def plan_summary(plan: PublishPlan, published_at: datetime | None = None) -> dic
         "zone_updates": len(plan.zone_updates),
         "zone_deletes": len(plan.zone_deletes),
         "affected_bookings": plan.affected_bookings,
+        "plan_changed": plan.plan_changed,
         "orphans": [
             {
                 "resource_id": str(o.resource_id),

@@ -150,3 +150,13 @@ export function clashingNames(names: string[], taken: Iterable<string>): string[
   }
   return clashes;
 }
+
+/**
+ * "4F-A-01" -> "A-01". Plan labels drop the floor prefix, which every desk on the floor
+ * shares — the same rule the mobile viewer uses (`apps/mobile/src/lib/plan.ts`), so a
+ * desk reads the same in the editor and in the app.
+ */
+export function shortLabel(code: string): string {
+  const parts = code.split("-");
+  return parts.length > 2 ? parts.slice(1).join("-") : code;
+}

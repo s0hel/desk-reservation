@@ -7,6 +7,7 @@ import {
   namesForGrid,
   parsePattern,
   patternSize,
+  shortLabel,
 } from "@/lib/naming";
 
 describe("expandPattern", () => {
@@ -114,5 +115,21 @@ describe("clashingNames", () => {
 
   it("is quiet when nothing clashes", () => {
     expect(clashingNames(["A-1", "A-2"], ["B-1"])).toEqual([]);
+  });
+});
+
+describe("shortLabel", () => {
+  it("drops the floor prefix that every desk on the floor shares", () => {
+    expect(shortLabel("4F-A-01")).toBe("A-01");
+  });
+
+  it("keeps a code that has nothing to drop", () => {
+    expect(shortLabel("A-01")).toBe("A-01");
+    expect(shortLabel("RECEPTION")).toBe("RECEPTION");
+  });
+
+  it("drops only the first segment, so labels stay unique across rows", () => {
+    // Taking just the trailing number made all five rows read 01..12.
+    expect(shortLabel("4F-A-01")).not.toBe(shortLabel("4F-B-01"));
   });
 });

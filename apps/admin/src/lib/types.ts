@@ -105,6 +105,7 @@ export type PublishPreflight = {
   zone_deletes: number;
   affected_bookings: number;
   orphans: Orphan[];
+  plan_changed: boolean;
   aspect_ratio_change: { from: number; to: number } | null;
   is_empty: boolean;
   published_at: string | null;

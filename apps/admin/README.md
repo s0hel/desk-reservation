@@ -14,42 +14,47 @@ Needs the API up (`make up && make api` from the repo root) and an admin account
 `dana.okafor@example.com` (site_admin) or `sam.vasquez@example.com` (org_admin) from
 `make seed`.
 
-## Status — the floor plan editor is HALF BUILT
+## The floor plan editor
 
-The backend is finished and tested (96 API tests). The console's pure logic is finished
-and tested (41 vitest tests). **No pages or React components exist yet** — `pnpm dev`
-will not start until `src/app/layout.tsx` and `src/app/page.tsx` are written.
+`/floors/{id}` is a CAD-ish tool over one floor (TDD §14.3).
 
-Done, in `src/lib`:
-
-| File | What it holds |
+| | |
 | --- | --- |
-| `naming.ts` | `4F-A-{01..24}` pattern expansion, clash detection — the bulk-create path |
-| `geometry.ts` | Plan-space maths: marquee rects, grid placement, group-clamped drags, polygon hit tests |
-| `editor-state.ts` | The reducer and the snapshot-based undo stack |
-| `types.ts` | Mirrors `services/api/app/services/layout.py` |
+| Select (V) | Click, shift-click, marquee-drag; drag to move; arrow keys nudge (shift = coarse) |
+| Place (P) | Click to drop one desk, named from the floor's own scheme |
+| Grid (G) | Drag a rectangle, give rows/columns and a pattern, get a named block |
+| Zone (Z) | Click points; Enter or click the start to close; assign group permissions |
+| ⌘Z / ⇧⌘Z | Undo / redo, over a local command stack |
+| ⌘S | Save the draft. Nothing autosaves |
 
-All three are pure and tested without a browser, deliberately: every UI bug in this repo
-so far has been invisible to typecheck, lint and unit tests, so the logic that *can* be
-tested is kept outside the components (see CLAUDE.md).
+Bulk creation is the primary path, not a shortcut: an admin placing 300 desks one at a
+time abandons onboarding, and so does one who renames 300 afterwards (PRD risk R5). The
+pattern's output and its clashes are shown before anything is created.
 
-## What is left
+Nothing an admin does here is visible to employees until they press Publish. Publishing
+shows what it would change first, including the bookings it would cancel, and cancels
+those through the booking service so the people who lose a desk are told.
 
-1. **Session and API plumbing** — `src/lib/session.ts` (httpOnly cookie holding the
-   access token), `src/app/api/session/route.ts` (POST → `/v1/auth/dev-login`, DELETE →
-   clear), `src/app/api/proxy/[...path]/route.ts` (forward browser calls with the bearer
-   token so no token ever reaches JS), `src/lib/api.ts` (server-side fetch),
-   `src/lib/client.ts` (browser fetch through the proxy).
-2. **Pages** — `layout.tsx`, `globals.css`, `sign-in/page.tsx`, `page.tsx` (sites and
-   floors), `floors/[id]/page.tsx` (server component fetching `GET /v1/admin/floors/{id}`
-   and rendering the editor).
-3. **Editor components** — `Canvas` (plan image + desks + zones, pointer handling),
-   `Toolbar` (select/place/zone/bulk tools, undo/redo, save, publish), `Inspector`
-   (multi-select attribute editing), `BulkDialog` (drag a rect → rows/cols + pattern),
-   `PublishDialog` (preflight, orphaned-booking count, aspect-ratio warning).
-4. **Mobile** — render the published plan image behind the desks in
-   `apps/mobile/src/components/FloorPlan.tsx`. It currently draws on a plain grey
-   ground; `GET /v1/floors/{id}/availability` does not yet return the plan URL.
+### Structure
+
+`src/lib` holds everything that can be tested without a browser, and is where the real
+logic lives — `naming.ts` (patterns), `geometry.ts` (plan-space maths), `editor-state.ts`
+(the reducer and undo stack), `messages.ts` (reason codes → sentences). The components
+under `src/components/editor` are presentational and thin on purpose. Every UI bug in
+this repo so far passed typecheck, lint and unit tests and was found by a person driving
+the app, so the split is deliberate: what can be tested, is.
+
+The canvas sizes its element and lets the browser scroll it rather than applying a CSS
+transform. A transformed surface needs an inverse transform to turn a click back into
+plan coordinates, and that inverse is exactly what shipped wrong in the mobile viewer —
+applied twice, which is the identity at zoom 1, so it looked perfect until the first
+zoom.
+
+### Not built
+
+CSV import (FR-8.3), user and group management (FR-8.4), policy configuration (FR-8.5),
+QR sheets (FR-8.7), and the audit log (FR-8.8). This is the floor plan editor and the
+site/floor structure it needs (FR-8.1, FR-8.2), not the whole console.
 
 ## API it talks to
 

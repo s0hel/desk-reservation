@@ -108,6 +108,7 @@ export default function FloorScreen() {
             <FloorPlan
               resources={data.resources}
               zones={data.zones}
+              plan={data.plan}
               onSelect={(r) => {
                 if (r.available) book.mutate(r);
                 else

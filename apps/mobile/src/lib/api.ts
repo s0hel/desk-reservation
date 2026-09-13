@@ -51,10 +51,16 @@ export type Zone = {
   id: string; name: string; polygon: number[][]; color: string | null;
 };
 
+/** The published plan image. Null until an admin publishes one (TDD §14.3). */
+export type Plan = {
+  url: string; width_px: number; height_px: number; aspect_ratio: number;
+};
+
 export type Availability = {
   floor_id: string; local_date: string; slot: Slot;
   starts_at: string; ends_at: string; site_timezone: string;
   total: number; available: number; resources: ResourceAvailability[]; zones: Zone[];
+  plan: Plan | null;
 };
 
 export type Slot = "full_day" | "am" | "pm" | "custom";

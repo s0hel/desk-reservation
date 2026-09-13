@@ -10,8 +10,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import Principal, current_principal, current_user, db
+from app.api.v1.admin import plan_url
 from app.core.errors import NotFound
-from app.models import Booking, Floor, Resource, Site, User, Zone
+from app.models import Booking, Floor, FloorPlanAsset, Resource, Site, User, Zone
 from app.services import availability as availability_service
 from app.services.booking import BookingRequest, cancel_booking, create_booking, resolve_window
 
@@ -44,6 +45,20 @@ class ZoneOut(BaseModel):
     color: str | None
 
 
+class PlanOut(BaseModel):
+    """The floor's published plan image, as a signed short-lived URL (TDD §11, §14.3).
+
+    Signed rather than bearer-authenticated because the renderer fetches it with an
+    <Image>, which cannot set an Authorization header. Null until an admin publishes a
+    plan, and the viewer draws on a plain ground until then.
+    """
+
+    url: str
+    width_px: int
+    height_px: int
+    aspect_ratio: float
+
+
 class AvailabilityOut(BaseModel):
     floor_id: uuid.UUID
     local_date: date
@@ -56,6 +71,7 @@ class AvailabilityOut(BaseModel):
     resources: list[ResourceAvailabilityOut]
     #: Returned alongside resources because the plan needs both to draw one frame.
     zones: list[ZoneOut]
+    plan: PlanOut | None = None
 
 
 class BookingOut(BaseModel):
@@ -131,6 +147,22 @@ async def floor_availability(
         filters=filters,
     )
     zones = await session.scalars(select(Zone).where(Zone.floor_id == floor_id))
+
+    # The PUBLISHED plan only. `floors.plan_asset_id` is moved by publishing, so an
+    # admin's unpublished replacement cannot reach an employee's screen from here.
+    plan_out: PlanOut | None = None
+    if floor.plan_asset_id:
+        asset = await session.scalar(
+            select(FloorPlanAsset).where(FloorPlanAsset.id == floor.plan_asset_id)
+        )
+        if asset and asset.height_px:
+            plan_out = PlanOut(
+                url=plan_url(asset.id, asset.organization_id),
+                width_px=asset.width_px,
+                height_px=asset.height_px,
+                aspect_ratio=round(asset.width_px / asset.height_px, 6),
+            )
+
     return AvailabilityOut(
         floor_id=floor_id,
         local_date=local_date,
@@ -160,6 +192,7 @@ async def floor_availability(
         zones=[
             ZoneOut(id=z.id, name=z.name, polygon=z.polygon or [], color=z.color) for z in zones
         ],
+        plan=plan_out,
     )
 
 

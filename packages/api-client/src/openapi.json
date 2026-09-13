@@ -1024,7 +1024,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PlanOut"
+                  "$ref": "#/components/schemas/app__api__v1__admin__PlanOut"
                 }
               }
             }
@@ -1266,6 +1266,16 @@
             },
             "type": "array",
             "title": "Zones"
+          },
+          "plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/app__api__v1__bookings__PlanOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -1507,7 +1517,7 @@
           "plan": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/PlanOut"
+                "$ref": "#/components/schemas/app__api__v1__admin__PlanOut"
               },
               {
                 "type": "null"
@@ -2073,45 +2083,6 @@
         ],
         "title": "MeResponse"
       },
-      "PlanOut": {
-        "properties": {
-          "asset_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Asset Id"
-          },
-          "url": {
-            "type": "string",
-            "title": "Url"
-          },
-          "width_px": {
-            "type": "integer",
-            "title": "Width Px"
-          },
-          "height_px": {
-            "type": "integer",
-            "title": "Height Px"
-          },
-          "content_type": {
-            "type": "string",
-            "title": "Content Type"
-          },
-          "converted": {
-            "type": "boolean",
-            "title": "Converted",
-            "default": false
-          }
-        },
-        "type": "object",
-        "required": [
-          "asset_id",
-          "url",
-          "width_px",
-          "height_px",
-          "content_type"
-        ],
-        "title": "PlanOut"
-      },
       "Position": {
         "properties": {
           "x": {
@@ -2496,6 +2467,45 @@
         ],
         "title": "ZoneOut"
       },
+      "app__api__v1__admin__PlanOut": {
+        "properties": {
+          "asset_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Asset Id"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "width_px": {
+            "type": "integer",
+            "title": "Width Px"
+          },
+          "height_px": {
+            "type": "integer",
+            "title": "Height Px"
+          },
+          "content_type": {
+            "type": "string",
+            "title": "Content Type"
+          },
+          "converted": {
+            "type": "boolean",
+            "title": "Converted",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "asset_id",
+          "url",
+          "width_px",
+          "height_px",
+          "content_type"
+        ],
+        "title": "PlanOut"
+      },
       "app__api__v1__admin__SiteOut": {
         "properties": {
           "id": {
@@ -2531,6 +2541,35 @@
           "address"
         ],
         "title": "SiteOut"
+      },
+      "app__api__v1__bookings__PlanOut": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "width_px": {
+            "type": "integer",
+            "title": "Width Px"
+          },
+          "height_px": {
+            "type": "integer",
+            "title": "Height Px"
+          },
+          "aspect_ratio": {
+            "type": "number",
+            "title": "Aspect Ratio"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url",
+          "width_px",
+          "height_px",
+          "aspect_ratio"
+        ],
+        "title": "PlanOut",
+        "description": "The floor's published plan image, as a signed short-lived URL (TDD \u00a711, \u00a714.3).\n\nSigned rather than bearer-authenticated because the renderer fetches it with an\n<Image>, which cannot set an Authorization header. Null until an admin publishes a\nplan, and the viewer draws on a plain ground until then."
       },
       "app__api__v1__spaces__SiteOut": {
         "properties": {

@@ -28,9 +28,16 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import Svg, { Circle, G, Polygon, Rect, Text as SvgText } from "react-native-svg";
+import Svg, {
+  Circle,
+  G,
+  Image as SvgImage,
+  Polygon,
+  Rect,
+  Text as SvgText,
+} from "react-native-svg";
 
-import type { ResourceAvailability } from "@/lib/api";
+import type { Plan, ResourceAvailability } from "@/lib/api";
 import {
   NODE_RADIUS, buildIndex, findNearest, shortLabel, viewportToPlan,
 } from "@/lib/plan";
@@ -41,6 +48,8 @@ export type PlanZone = { id: string; name: string; polygon: number[][]; color?: 
 type Props = {
   resources: ResourceAvailability[];
   zones?: PlanZone[];
+  /** The published plan image, or null while a floor has none. */
+  plan?: Plan | null;
   aspectRatio?: number;
   onSelect: (resource: ResourceAvailability) => void;
 };
@@ -61,10 +70,12 @@ const FILL = {
   unavailable: colors.danger,
 } as const;
 
-export function FloorPlan({ resources, zones = [], aspectRatio = 1.5, onSelect }: Props) {
+export function FloorPlan({ resources, zones = [], plan, aspectRatio, onSelect }: Props) {
   const { width } = useWindowDimensions();
   const planWidth = width;
-  const planHeight = width / aspectRatio;
+  // The image's own ratio wins: positions are normalized against it (TDD §14.2), so
+  // drawing it at any other shape puts every desk in the wrong place.
+  const planHeight = width / (plan?.aspect_ratio ?? aspectRatio ?? 1.5);
 
   const index = useMemo(() => buildIndex(resources), [resources]);
   const byId = useMemo(() => new Map(resources.map((r) => [r.id, r])), [resources]);
@@ -168,8 +179,20 @@ export function FloorPlan({ resources, zones = [], aspectRatio = 1.5, onSelect }
         <Animated.View style={[styles.canvas, animatedStyle]} pointerEvents="none">
           <Svg width={planWidth} height={planHeight}>
             <Rect x={0} y={0} width={planWidth} height={planHeight} fill={colors.card} />
-            {/* No plan image has been uploaded yet — zones and desks render on a plain
-                ground. The raster backdrop arrives with the admin editor (TDD §14.3). */}
+            {/* The plan the admin published, if any. A floor without one still renders:
+                zones and desks on a plain ground, in the right places, because
+                positions never depended on the image (TDD §14.2). */}
+            {plan ? (
+              <SvgImage
+                x={0}
+                y={0}
+                width={planWidth}
+                height={planHeight}
+                href={{ uri: plan.url }}
+                preserveAspectRatio="xMidYMid slice"
+                opacity={0.85}
+              />
+            ) : null}
             {zones.map((z) => (
               <Polygon
                 key={z.id}

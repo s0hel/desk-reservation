@@ -442,6 +442,7 @@ export interface components {
             resources: components["schemas"]["ResourceAvailabilityOut"][];
             /** Zones */
             zones: components["schemas"]["ZoneOut"][];
+            plan?: components["schemas"]["app__api__v1__bookings__PlanOut"] | null;
         };
         /** Body_upload_plan_v1_admin_floors__floor_id__plan_post */
         Body_upload_plan_v1_admin_floors__floor_id__plan_post: {
@@ -551,7 +552,7 @@ export interface components {
         FloorEditorOut: {
             floor: components["schemas"]["FloorSummaryOut"];
             site: components["schemas"]["app__api__v1__admin__SiteOut"];
-            plan: components["schemas"]["PlanOut"] | null;
+            plan: components["schemas"]["app__api__v1__admin__PlanOut"] | null;
             layout: components["schemas"]["FloorLayout"];
             /** Is Draft */
             is_draft: boolean;
@@ -760,27 +761,6 @@ export interface components {
             /** Roles */
             roles: string[];
         };
-        /** PlanOut */
-        PlanOut: {
-            /**
-             * Asset Id
-             * Format: uuid
-             */
-            asset_id: string;
-            /** Url */
-            url: string;
-            /** Width Px */
-            width_px: number;
-            /** Height Px */
-            height_px: number;
-            /** Content Type */
-            content_type: string;
-            /**
-             * Converted
-             * @default false
-             */
-            converted: boolean;
-        };
         /** Position */
         Position: {
             /** X */
@@ -924,6 +904,27 @@ export interface components {
             /** Color */
             color: string | null;
         };
+        /** PlanOut */
+        app__api__v1__admin__PlanOut: {
+            /**
+             * Asset Id
+             * Format: uuid
+             */
+            asset_id: string;
+            /** Url */
+            url: string;
+            /** Width Px */
+            width_px: number;
+            /** Height Px */
+            height_px: number;
+            /** Content Type */
+            content_type: string;
+            /**
+             * Converted
+             * @default false
+             */
+            converted: boolean;
+        };
         /** SiteOut */
         app__api__v1__admin__SiteOut: {
             /**
@@ -937,6 +938,24 @@ export interface components {
             timezone: string;
             /** Address */
             address: string | null;
+        };
+        /**
+         * PlanOut
+         * @description The floor's published plan image, as a signed short-lived URL (TDD §11, §14.3).
+         *
+         *     Signed rather than bearer-authenticated because the renderer fetches it with an
+         *     <Image>, which cannot set an Authorization header. Null until an admin publishes a
+         *     plan, and the viewer draws on a plain ground until then.
+         */
+        app__api__v1__bookings__PlanOut: {
+            /** Url */
+            url: string;
+            /** Width Px */
+            width_px: number;
+            /** Height Px */
+            height_px: number;
+            /** Aspect Ratio */
+            aspect_ratio: number;
         };
         /** SiteOut */
         app__api__v1__spaces__SiteOut: {
@@ -1619,7 +1638,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlanOut"];
+                    "application/json": components["schemas"]["app__api__v1__admin__PlanOut"];
                 };
             };
             /** @description Validation Error */

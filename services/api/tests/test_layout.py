@@ -159,6 +159,57 @@ async def test_layout_from_live_round_trips_without_a_diff(world):
         await s.close()
 
 
+async def test_saving_an_untouched_layout_leaves_nothing_to_publish(world):
+    """The sequence the editor actually performs: open, save, preflight.
+
+    Saving normalizes attributes (filling in schema defaults), so a seeded desk stored
+    as {"dock": "usb_c"} comes back with all six desk fields. Comparing that against the
+    live row naively reports every resource on the floor as changed — the console showed
+    "66 resources changed" on a floor where six had been touched, which is exactly the
+    noise that teaches an admin to click through the publish screen.
+    """
+    s = await _session(world.org)
+    try:
+        floor = await _floor(s, world.floor)
+        actor = await _user(s, world.user)
+        # Seeded rows carry partial attributes, like real ones do.
+        for resource in await s.scalars(select(Resource).where(Resource.floor_id == floor.id)):
+            resource.attributes = {"dock": "usb_c"}
+        await s.flush()
+
+        layout, _ = await layout_service.current_layout(s, floor)
+        await layout_service.save_draft(s, floor, layout, actor)
+
+        saved, is_draft = await layout_service.current_layout(s, floor)
+        assert is_draft is True
+        plan = await layout_service.build_plan(s, floor, saved)
+        assert plan.is_empty, (
+            f"saving an untouched layout reported {len(plan.updates)} changed resources"
+        )
+    finally:
+        await s.rollback()
+        await s.close()
+
+
+async def test_a_real_attribute_edit_is_still_reported(world):
+    """The other half of the above: normalizing for comparison must not hide edits."""
+    s = await _session(world.org)
+    try:
+        floor = await _floor(s, world.floor)
+        actor = await _user(s, world.user)
+        layout, _ = await layout_service.current_layout(s, floor)
+        layout.resources[0].attributes = {"sit_stand": True}
+        await layout_service.save_draft(s, floor, layout, actor)
+
+        saved, _ = await layout_service.current_layout(s, floor)
+        plan = await layout_service.build_plan(s, floor, saved)
+        assert len(plan.updates) == 1
+        assert plan.updates[0][0].id == world.desks[0]
+    finally:
+        await s.rollback()
+        await s.close()
+
+
 # -------------------------------------------------------------------------- drafts
 
 
@@ -297,7 +348,9 @@ async def test_publish_applies_creates_updates_and_deletes(world):
         )
 
         plan = await layout_service.publish(s, floor, layout, actor)
-        assert (len(plan.creates), len(plan.updates), len(plan.deletes)) == (1, 2, 1)
+        # One update, not two: A-01 was not touched, and only looked changed because
+        # validation had filled in its attribute defaults (see _normalized_attributes).
+        assert (len(plan.creates), len(plan.updates), len(plan.deletes)) == (1, 1, 1)
         await s.commit()
     finally:
         await s.close()
@@ -330,9 +383,14 @@ async def test_publish_applies_creates_updates_and_deletes(world):
         await s.close()
 
 
-async def test_publish_regenerates_the_draft_with_real_ids(world):
-    """After publishing, the editor must not still be holding `id: null` for a desk that
-    now exists — the next publish would create it a second time."""
+async def test_publish_clears_the_draft_and_leaves_real_ids(world):
+    """Two things at once.
+
+    The editor must not still be holding `id: null` for a desk that now exists, or the
+    next publish would create it a second time. And the draft must be GONE, not
+    regenerated: a draft row that outlives publishing makes "has unpublished changes"
+    unanswerable, and the console showed a freshly published floor as still pending.
+    """
     s = await _session(world.org)
     try:
         floor = await _floor(s, world.floor)
@@ -350,8 +408,9 @@ async def test_publish_regenerates_the_draft_with_real_ids(world):
     s = await _session(world.org)
     try:
         floor = await _floor(s, world.floor)
+        assert await layout_service.get_draft(s, floor) is None
         reopened, is_draft = await layout_service.current_layout(s, floor)
-        assert is_draft is True
+        assert is_draft is False
         assert all(r.id is not None for r in reopened.resources)
 
         plan = await layout_service.build_plan(s, floor, reopened)
@@ -597,6 +656,42 @@ async def test_past_bookings_do_not_block_an_edit(world):
         await layout_service.publish(s, floor, layout, await _user(s, world.user))
         retired = await s.scalar(select(Resource).where(Resource.id == world.desks[1]))
         assert retired.status == "retired"
+    finally:
+        await s.rollback()
+        await s.close()
+
+
+async def test_uploading_a_plan_is_itself_something_to_publish(world):
+    """A re-scan of the same floor keeps the aspect ratio, so tracking only the
+    ratio-change WARNING made the ordinary case invisible: upload a plan, press publish,
+    get told there is nothing to publish, and the image never reaches employees."""
+    s = await _session(world.org)
+    try:
+        floor = await _floor(s, world.floor)
+        floor.plan_width_px, floor.plan_height_px = 2400, 1600
+        same_shape = FloorPlanAsset(
+            id=uuid7(),
+            organization_id=world.org,
+            original_key="k",
+            rendered_key="k",
+            width_px=2400,
+            height_px=1600,
+            content_type="image/png",
+        )
+        s.add(same_shape)
+        await s.flush()
+
+        layout, _ = await layout_service.current_layout(s, floor)
+        layout.plan_asset_id = same_shape.id
+        plan = await layout_service.build_plan(s, floor, layout)
+
+        assert plan.plan_changed is True
+        assert plan.aspect_ratio_change is None, "same shape should not warn"
+        assert plan.is_empty is False, "publishing a new plan must not be a no-op"
+
+        await layout_service.publish(s, floor, layout, await _user(s, world.user))
+        refreshed = await _floor(s, world.floor)
+        assert refreshed.plan_asset_id == same_shape.id
     finally:
         await s.rollback()
         await s.close()

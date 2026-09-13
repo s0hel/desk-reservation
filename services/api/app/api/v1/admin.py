@@ -17,7 +17,7 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -85,6 +85,11 @@ class FloorSummaryOut(BaseModel):
 
 
 class GroupOut(BaseModel):
+    # from_attributes because this one is built from ORM rows by hand, inside
+    # FloorEditorOut, rather than only ever being returned as a response_model (which
+    # is where FastAPI would do the conversion for us).
+    model_config = ConfigDict(from_attributes=True)
+
     id: uuid.UUID
     name: str
     kind: str
@@ -246,7 +251,10 @@ async def open_floor(
         layout=layout,
         is_draft=is_draft,
         draft_updated_at=draft.updated_at if draft else None,
-        groups=list(await session.scalars(select(Group).order_by(Group.name))),
+        groups=[
+            GroupOut.model_validate(group)
+            for group in await session.scalars(select(Group).order_by(Group.name))
+        ],
     )
 
 

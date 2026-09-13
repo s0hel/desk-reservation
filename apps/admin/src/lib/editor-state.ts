@@ -283,10 +283,15 @@ export function reducer(state: EditorState, action: Action): EditorState {
     }
 
     case "markSaved":
-      // The server returns the layout it stored, which may differ from what was sent
-      // (attribute defaults are filled in). Saving the RESPONSE is what keeps "dirty"
+      // The server returns the layout it stored, which differs from what was sent
+      // (attribute defaults are filled in). Adopting the RESPONSE is what keeps "dirty"
       // from being true the instant a save succeeds.
-      return { ...state, saved: action.layout ?? state.layout };
+      //
+      // History is deliberately untouched: `replaceLayout` resets it, and a save that
+      // costs the admin their undo stack is a save they learn not to press.
+      return action.layout
+        ? prune({ ...state, layout: action.layout, saved: action.layout })
+        : { ...state, saved: state.layout };
 
     case "undo": {
       const previous = state.past.at(-1);
