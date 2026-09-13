@@ -44,6 +44,12 @@ under `src/components/editor` are presentational and thin on purpose. Every UI b
 this repo so far passed typecheck, lint and unit tests and was found by a person driving
 the app, so the split is deliberate: what can be tested, is.
 
+Chrome is light and the canvas is dark — the split every CAD tool makes, because a plan
+image reads better on a dark ground and because it is the clearest signal about where the
+work happens. The tokens are in `globals.css`: `--bg`/`--panel` for the chrome,
+`--canvas`/`--canvas-inset` for the drawing surface. They are the same Daylight palette
+the mobile app uses (`apps/mobile/src/lib/theme.ts`); keep the two in step by hand.
+
 The canvas sizes its element and lets the browser scroll it rather than applying a CSS
 transform. A transformed surface needs an inverse transform to turn a click back into
 plan coordinates, and that inverse is exactly what shipped wrong in the mobile viewer —

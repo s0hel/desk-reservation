@@ -294,7 +294,7 @@ export function Canvas({
       style={{
         flex: 1,
         overflow: "auto",
-        background: "var(--bg)",
+        background: "var(--canvas)",
         padding: 16,
         minWidth: 0,
       }}
@@ -309,8 +309,8 @@ export function Canvas({
           position: "relative",
           width: `${100 * zoom}%`,
           aspectRatio: String(aspectRatio),
-          background: "var(--panel)",
-          border: "1px solid var(--border)",
+          background: "var(--canvas-inset)",
+          border: "1px solid rgba(255,255,255,0.08)",
           borderRadius: 8,
           touchAction: "none",
           cursor: cursorLabel,

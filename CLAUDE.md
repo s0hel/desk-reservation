@@ -156,6 +156,19 @@ don't build against dev-login as if it were permanent.
   `@repo/api-client` generated from the OpenAPI schema, so don't invest in hand-written types
   here beyond what's needed now.
 - `lib/auth.tsx` — `AuthProvider`/`useAuth`, tokens in `expo-secure-store` (Keychain/Keystore).
+- `lib/theme.ts` — the "Daylight" design system: a light and a dark `Palette`, the type
+  scale, radii, and card elevation. **Light is the default**; dark follows the system via
+  `useColorScheme`. Two rules it exists to enforce. `accent` (a fill) and `accentText`
+  (the same idea as text on the ground) are separate tokens, because the light-mode fill
+  is unreadable as text on a dark ground — the dark palette is re-solved, never inverted.
+  And `state.*` (free/taken/yours/closed/zone) is independent of `accent`, so "selected"
+  and "your booking" can never collide again; every state also carries a distinct *shape*
+  at the call site, so colour alone never means anything.
+  Components take styles from `useThemedStyles(makeStyles)` with the `makeStyles` factory
+  at **module scope** — its identity has to be stable or the sheet rebuilds every render.
+- `components/Icon.tsx` — the icon set, hand-drawn on `react-native-svg` (already a
+  dependency) rather than an icon font. A shared stroke weight is what makes a set look
+  like a set, and that is the first thing lost to a third-party pack.
 - `app/` — expo-router file-based routes: `sign-in.tsx`, `(tabs)/` (index, spaces, me),
   `floor/[id].tsx`.
 

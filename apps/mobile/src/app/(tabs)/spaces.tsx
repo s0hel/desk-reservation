@@ -1,13 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "expo-router";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, Text, View } from "react-native";
 
+import { Icon } from "@/components/Icon";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { colors, spacing } from "@/lib/theme";
+import { radius, spacing, type, useTheme, useThemedStyles, type Theme } from "@/lib/theme";
 
 export default function Spaces() {
   const { token } = useAuth();
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
 
   const sites = useQuery({ queryKey: ["sites"], queryFn: () => api.sites(token!), enabled: !!token });
   const siteId = sites.data?.[0]?.id;
@@ -33,13 +36,13 @@ export default function Spaces() {
           <Pressable
             style={styles.card}
             accessibilityRole="link"
-            accessibilityLabel={`${item.name}, view resources`}
+            accessibilityLabel={`${item.name}, see the plan`}
           >
-            <Text style={styles.cardTitle}>{item.name}</Text>
-            <Text style={styles.cardMeta}>
-              Plan {item.plan_width_px}×{item.plan_height_px}px · positions are normalised 0–1
-            </Text>
-            <Text style={styles.link}>View resources →</Text>
+            <View style={styles.cardBody}>
+              <Text style={styles.cardTitle}>{item.name}</Text>
+              <Text style={styles.cardMeta}>See the plan</Text>
+            </View>
+            <Icon name="chevronRight" size={20} color={theme.color.muted} />
           </Pressable>
         </Link>
       )}
@@ -47,15 +50,20 @@ export default function Spaces() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg },
-  header: { color: colors.text, fontSize: 24, fontWeight: "700", marginBottom: spacing(2) },
-  sub: { color: colors.muted },
+const makeStyles = (t: Theme) => ({
+  screen: { flex: 1, backgroundColor: t.color.ground },
+  header: { ...type.display, color: t.color.ink, marginBottom: spacing(2) },
+  sub: { ...type.body, color: t.color.muted },
   card: {
-    backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1,
-    borderRadius: 14, padding: spacing(2), marginBottom: spacing(1.5),
+    ...t.card,
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: spacing(1.5),
+    borderRadius: radius.l,
+    padding: spacing(2),
+    marginBottom: spacing(1.5),
   },
-  cardTitle: { color: colors.text, fontSize: 18, fontWeight: "600" },
-  cardMeta: { color: colors.muted, fontSize: 13, marginTop: spacing(0.5) },
-  link: { color: colors.accent, marginTop: spacing(1), fontWeight: "600" },
+  cardBody: { flex: 1 },
+  cardTitle: { ...type.heading, color: t.color.ink },
+  cardMeta: { ...type.sub, color: t.color.muted, marginTop: spacing(0.25) },
 });

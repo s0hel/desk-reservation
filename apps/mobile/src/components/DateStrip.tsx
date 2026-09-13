@@ -1,7 +1,7 @@
-import { Pressable, ScrollView, StyleSheet, Text } from "react-native";
+import { Pressable, ScrollView, Text } from "react-native";
 
 import { upcomingDays } from "@/lib/dates";
-import { colors, spacing } from "@/lib/theme";
+import { radius, spacing, type, useThemedStyles, type Theme } from "@/lib/theme";
 
 export function DateStrip({
   value,
@@ -12,6 +12,8 @@ export function DateStrip({
   onChange: (date: string) => void;
   days?: number;
 }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <ScrollView
       horizontal
@@ -39,17 +41,26 @@ export function DateStrip({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => ({
   // flexGrow:0 stops the scroll view claiming the rest of the screen; alignItems keeps
   // the cells their natural height instead of stretching to the cross axis.
   strip: { flexGrow: 0 },
-  row: { alignItems: "center", gap: spacing(1), paddingHorizontal: spacing(2), paddingVertical: spacing(1) },
-  cell: {
-    minWidth: 52, paddingVertical: spacing(1), borderRadius: 12, alignItems: "center",
-    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card,
+  row: {
+    alignItems: "center" as const,
+    gap: spacing(1),
+    paddingHorizontal: spacing(2),
+    paddingVertical: spacing(1),
   },
-  cellSelected: { backgroundColor: colors.accent, borderColor: colors.accent },
-  weekday: { color: colors.muted, fontSize: 12 },
-  day: { color: colors.text, fontSize: 18, fontWeight: "600" },
-  textSelected: { color: "#fff" },
+  cell: {
+    ...t.card,
+    minWidth: 54,
+    paddingVertical: spacing(1),
+    paddingHorizontal: spacing(1),
+    borderRadius: radius.m,
+    alignItems: "center" as const,
+  },
+  cellSelected: { backgroundColor: t.color.accent, borderColor: t.color.accent, shadowOpacity: 0 },
+  weekday: { ...type.label, fontSize: 10, letterSpacing: 0.6, color: t.color.muted },
+  day: { ...type.heading, fontSize: 18, color: t.color.ink, marginTop: 2 },
+  textSelected: { color: t.color.onAccent },
 });

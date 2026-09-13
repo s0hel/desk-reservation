@@ -5,7 +5,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useState } from "react";
 
 import { AuthProvider, useAuth } from "@/lib/auth";
-import { colors } from "@/lib/theme";
+import { type, useTheme } from "@/lib/theme";
 
 export default function RootLayout() {
   const [client] = useState(
@@ -22,7 +22,8 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={client}>
         <AuthProvider>
-          <StatusBar style="light" />
+          {/* Follows the system scheme; light is the default (see lib/theme.ts). */}
+          <StatusBar style="auto" />
           <RootStack />
         </AuthProvider>
       </QueryClientProvider>
@@ -44,13 +45,16 @@ export default function RootLayout() {
  */
 function RootStack() {
   const { token } = useAuth();
+  const theme = useTheme();
 
   return (
     <Stack
       screenOptions={{
-        headerStyle: { backgroundColor: colors.bg },
-        headerTintColor: colors.text,
-        contentStyle: { backgroundColor: colors.bg },
+        headerStyle: { backgroundColor: theme.color.ground },
+        headerTintColor: theme.color.accentText,
+        headerTitleStyle: { ...type.heading, color: theme.color.ink },
+        headerShadowVisible: false,
+        contentStyle: { backgroundColor: theme.color.ground },
       }}
     >
       <Stack.Screen name="index" options={{ headerShown: false }} />

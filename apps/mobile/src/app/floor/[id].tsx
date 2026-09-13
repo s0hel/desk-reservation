@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import {
-  ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View,
+  ActivityIndicator, Alert, FlatList, Pressable, Text, View,
 } from "react-native";
 
 import { DateStrip } from "@/components/DateStrip";
@@ -11,7 +11,9 @@ import { api, newIdempotencyKey, ProblemError, type ResourceAvailability } from 
 import { useAuth } from "@/lib/auth";
 import { formatDate, toLocalDate } from "@/lib/dates";
 import { describeAll } from "@/lib/messages";
-import { colors, spacing } from "@/lib/theme";
+import {
+  radius, spacing, type, useTheme, useThemedStyles, type Theme,
+} from "@/lib/theme";
 
 /**
  * The list view (FR-2.4) — a first-class equal of the floor plan, not a fallback.
@@ -21,6 +23,8 @@ import { colors, spacing } from "@/lib/theme";
 export default function FloorScreen() {
   const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
   const { token } = useAuth();
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const queryClient = useQueryClient();
   const [kind, setKind] = useState<"desk" | "room">("desk");
   const [view, setView] = useState<"plan" | "list">("plan");
@@ -71,6 +75,8 @@ export default function FloorScreen() {
         <DateStrip value={date} onChange={setDate} />
 
         <View style={styles.tabs}>
+          {/* Two independent choices — what to show, and how. Kept apart by the
+              spacer below so they do not read as one four-way control. */}
           {(["desk", "room"] as const).map((k) => (
             <Pressable
               key={k}
@@ -181,6 +187,8 @@ function ResourceRow({
   busy: boolean;
   onPress: () => void;
 }) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const attrs = Object.entries(resource.attributes)
     .filter(([, v]) => v !== false && v !== 0 && v !== "none")
     .map(([k, v]) => (typeof v === "boolean" ? k.replace(/_/g, " ") : `${k.replace(/_/g, " ")} ${v}`));
@@ -223,7 +231,7 @@ function ResourceRow({
         </Text>
       </View>
       {busy ? (
-        <ActivityIndicator color={colors.accent} />
+        <ActivityIndicator color={theme.color.accentText} />
       ) : (
         <Text style={[styles.state, state === "free" && styles.stateFree]}>{label}</Text>
       )}
@@ -231,34 +239,51 @@ function ResourceRow({
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg },
-  tabs: { flexDirection: "row", gap: spacing(1), paddingHorizontal: spacing(2) },
-  tab: {
-    paddingVertical: spacing(1), paddingHorizontal: spacing(2), borderRadius: 999,
-    borderWidth: 1, borderColor: colors.border,
+const makeStyles = (t: Theme) => ({
+  screen: { flex: 1, backgroundColor: t.color.ground },
+  tabs: {
+    flexDirection: "row" as const,
+    gap: spacing(1),
+    paddingHorizontal: spacing(2),
+    paddingBottom: spacing(1),
   },
-  tabActive: { backgroundColor: colors.accent, borderColor: colors.accent },
-  tabText: { color: colors.muted, fontWeight: "600" },
-  tabTextActive: { color: "#fff" },
-  count: { color: colors.muted, marginBottom: spacing(1) },
+  tab: {
+    paddingVertical: spacing(0.75),
+    paddingHorizontal: spacing(1.75),
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: t.color.line,
+    backgroundColor: t.color.surface,
+  },
+  tabActive: { backgroundColor: t.color.accent, borderColor: t.color.accent },
+  tabText: { ...type.sub, color: t.color.muted, fontWeight: "600" as const },
+  tabTextActive: { color: t.color.onAccent },
+  count: { ...type.sub, color: t.color.muted, marginBottom: spacing(1) },
   planHint: {
-    color: colors.muted, fontSize: 12, textAlign: "center",
-    paddingVertical: spacing(1), paddingHorizontal: spacing(2),
+    ...type.sub,
+    fontSize: 12,
+    color: t.color.muted,
+    textAlign: "center" as const,
+    paddingVertical: spacing(1),
+    paddingHorizontal: spacing(2),
   },
   row: {
-    flexDirection: "row", alignItems: "center", gap: spacing(1.5),
-    backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1,
-    borderRadius: 12, padding: spacing(1.5), marginBottom: spacing(1),
+    ...t.card,
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: spacing(1.5),
+    borderRadius: radius.m,
+    padding: spacing(1.5),
+    marginBottom: spacing(1),
   },
-  rowMuted: { opacity: 0.55 },
-  dot: { width: 10, height: 10, borderRadius: 5 },
-  dot_free: { backgroundColor: colors.free },
-  dot_taken: { backgroundColor: colors.taken },
-  dot_yours: { backgroundColor: colors.accent },
-  dot_unavailable: { backgroundColor: colors.danger },
-  code: { color: colors.text, fontWeight: "600" },
-  meta: { color: colors.muted, fontSize: 12, marginTop: 2 },
-  state: { color: colors.muted, fontSize: 12 },
-  stateFree: { color: colors.free, fontWeight: "600" },
+  rowMuted: { opacity: 0.6 },
+  dot: { width: 10, height: 10, borderRadius: radius.pill },
+  dot_free: { backgroundColor: t.color.state.free },
+  dot_taken: { backgroundColor: t.color.state.taken, opacity: 0.5 },
+  dot_yours: { backgroundColor: t.color.state.yours, borderWidth: 2, borderColor: t.color.state.yours },
+  dot_unavailable: { backgroundColor: "transparent", borderWidth: 2, borderColor: t.color.state.closed },
+  code: { ...type.code, color: t.color.ink },
+  meta: { ...type.sub, fontSize: 12, color: t.color.muted, marginTop: 2 },
+  state: { ...type.sub, fontSize: 12, color: t.color.muted },
+  stateFree: { color: t.color.state.free, fontWeight: "600" as const },
 });

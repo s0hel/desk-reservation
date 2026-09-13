@@ -3,20 +3,37 @@
    component library. */
 
 :root {
-  --bg: #0b0d12;
-  --panel: #151922;
-  --panel-2: #1c2230;
-  --border: #2a3040;
-  --text: #e8ecf4;
-  --muted: #8d97ab;
-  --accent: #4f7df3;
+  /* Daylight. Light chrome, one dark canvas.
+     The editor is a drawing tool, and a plan image reads better on a dark ground —
+     the same reason every CAD package does it. Making the canvas the only dark
+     surface is also the clearest signal about where the work happens. Shipping dark
+     everywhere, as this file previously did, meant the canvas never stood out from
+     the toolbar around it. */
+  --bg: #f5f4f0;
+  --panel: #ffffff;
+  --panel-2: #efede7;
+  --border: #e7e4dd;
+  --text: #16181c;
+  --muted: #70747b;
+  --accent: #4340c4;
+  --accent-soft: #ecebfa;
   --accent-text: #ffffff;
-  --free: #35c17f;
-  --taken: #3a4150;
-  --danger: #ef5b5b;
-  --warn: #e0a33e;
+
+  /* The drawing surface and the marks on it. */
+  --canvas: #22242b;
+  --canvas-inset: #2b2e36;
+  --canvas-grid: rgba(255, 255, 255, 0.045);
+
+  --free: #1e8f63;
+  --taken: #a9adb4;
+  --zone: #7c6ae8;
+  --danger: #b8433a;
+  --warn: #b07d1e;
+  --clay: #c4622f;
+
   --radius: 10px;
-  color-scheme: dark;
+  --shadow: 0 1px 2px rgba(16, 18, 24, 0.05), 0 10px 22px -16px rgba(16, 18, 24, 0.4);
+  color-scheme: light;
 }
 
 * {
@@ -31,6 +48,8 @@ body {
   background: var(--bg);
   color: var(--text);
   font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
 }
 
 a {
@@ -50,14 +69,16 @@ textarea {
 }
 
 button {
-  background: var(--panel-2);
+  background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 6px 12px;
+  border-radius: 999px;
+  padding: 6px 13px;
+  font-weight: 500;
   cursor: pointer;
 }
 button:hover:not(:disabled) {
   border-color: var(--accent);
+  color: var(--accent);
 }
 button:disabled {
   opacity: 0.45;
@@ -77,13 +98,16 @@ button.active {
   border-color: var(--accent);
   color: var(--accent-text);
 }
+button.active:hover:not(:disabled) {
+  color: var(--accent-text);
+}
 
 input[type="text"],
 input[type="email"],
 input[type="number"],
 select,
 textarea {
-  background: var(--bg);
+  background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 6px 10px;
@@ -99,16 +123,27 @@ textarea:focus-visible {
 
 label {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: 5px;
 }
 
 .card {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 16px;
   padding: 16px;
+  box-shadow: var(--shadow);
+}
+
+/* Codes are identifiers read down a column. */
+.code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 
 .muted {
@@ -140,11 +175,15 @@ label {
 }
 .pill.draft {
   border-color: var(--warn);
+  background: #fbf3e6;
   color: var(--warn);
+  font-weight: 600;
 }
 .pill.published {
   border-color: var(--free);
+  background: #e8f5ef;
   color: var(--free);
+  font-weight: 600;
 }
 
 .error {
@@ -159,11 +198,12 @@ dialog {
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 20px;
+  border-radius: 16px;
+  padding: 22px;
   min-width: 380px;
   max-width: 560px;
+  box-shadow: 0 20px 60px -24px rgba(16, 18, 24, 0.45);
 }
 dialog::backdrop {
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(22, 24, 28, 0.42);
 }

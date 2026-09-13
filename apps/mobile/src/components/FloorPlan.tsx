@@ -20,7 +20,7 @@
  */
 
 import { useCallback, useMemo, useRef } from "react";
-import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Text, View, useWindowDimensions } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   runOnJS,
@@ -41,7 +41,9 @@ import type { Plan, ResourceAvailability } from "@/lib/api";
 import {
   NODE_RADIUS, buildIndex, findNearest, shortLabel, viewportToPlan,
 } from "@/lib/plan";
-import { colors } from "@/lib/theme";
+import {
+  radius as rad, spacing, type, useTheme, useThemedStyles, type Palette, type Theme,
+} from "@/lib/theme";
 
 export type PlanZone = { id: string; name: string; polygon: number[][]; color?: string | null };
 
@@ -63,14 +65,29 @@ function stateOf(r: ResourceAvailability): "free" | "taken" | "yours" | "unavail
   return r.available ? "free" : "taken";
 }
 
-const FILL = {
-  free: colors.free,
-  taken: "#3A4150",
-  yours: colors.accent,
-  unavailable: colors.danger,
-} as const;
+type NodeState = "free" | "taken" | "yours" | "unavailable";
+
+/**
+ * Every state is a different colour AND a different shape: filled, faded, ringed,
+ * hollow. Roughly 8% of men cannot separate the free/closed pair by hue alone, and the
+ * list view has always carried a text label for the same reason (FR-2.4, TDD §13.3).
+ */
+function paint(color: Palette, state: NodeState) {
+  switch (state) {
+    case "free":
+      return { fill: color.state.free, opacity: 1, stroke: undefined, ring: false };
+    case "taken":
+      return { fill: color.state.taken, opacity: 0.5, stroke: undefined, ring: false };
+    case "yours":
+      return { fill: color.state.yours, opacity: 1, stroke: undefined, ring: true };
+    case "unavailable":
+      return { fill: "none", opacity: 1, stroke: color.state.closed, ring: false };
+  }
+}
 
 export function FloorPlan({ resources, zones = [], plan, aspectRatio, onSelect }: Props) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { width } = useWindowDimensions();
   const planWidth = width;
   // The image's own ratio wins: positions are normalized against it (TDD §14.2), so
@@ -178,7 +195,7 @@ export function FloorPlan({ resources, zones = [], plan, aspectRatio, onSelect }
       <View testID="floor-plan" style={[styles.viewport, { height: planHeight }]}>
         <Animated.View style={[styles.canvas, animatedStyle]} pointerEvents="none">
           <Svg width={planWidth} height={planHeight}>
-            <Rect x={0} y={0} width={planWidth} height={planHeight} fill={colors.card} />
+            <Rect x={0} y={0} width={planWidth} height={planHeight} fill={theme.color.surface} />
             {/* The plan the admin published, if any. A floor without one still renders:
                 zones and desks on a plain ground, in the right places, because
                 positions never depended on the image (TDD §14.2). */}
@@ -190,7 +207,9 @@ export function FloorPlan({ resources, zones = [], plan, aspectRatio, onSelect }
                 height={planHeight}
                 href={{ uri: plan.url }}
                 preserveAspectRatio="xMidYMid slice"
-                opacity={0.85}
+                // A floor plan is white paper. At full strength in dark mode it is a
+                // slab of daylight in the middle of a dark screen, so it recedes.
+                opacity={theme.scheme === "dark" ? 0.55 : 0.85}
               />
             ) : null}
             {zones.map((z) => (
@@ -199,46 +218,63 @@ export function FloorPlan({ resources, zones = [], plan, aspectRatio, onSelect }
                 points={z.polygon
                   .map(([x, y]) => `${x * planWidth},${y * planHeight}`)
                   .join(" ")}
-                fill={z.color ?? colors.accent}
-                fillOpacity={0.06}
-                stroke={z.color ?? colors.accent}
-                strokeOpacity={0.25}
-                strokeWidth={1}
+                fill={z.color ?? theme.color.state.zone}
+                fillOpacity={0.13}
+                stroke={z.color ?? theme.color.state.zone}
+                strokeOpacity={0.62}
+                strokeWidth={1.5}
               />
             ))}
             <G>
               {resources.map((r) => {
                 const state = stateOf(r);
+                const skin = paint(theme.color, state);
                 const cx = (r.position?.x ?? 0) * planWidth;
                 const cy = (r.position?.y ?? 0) * planHeight;
-                const radius = NODE_RADIUS * planWidth;
+                const r0 = NODE_RADIUS * planWidth;
                 return (
                   <G key={r.id}>
+                    {/* Your own desk gets a halo, so it is findable without hunting. */}
+                    {skin.ring ? (
+                      <Circle
+                        cx={cx}
+                        cy={cy}
+                        r={r0 * 1.9}
+                        fill="none"
+                        stroke={skin.fill}
+                        strokeOpacity={0.4}
+                        strokeWidth={r0 * 0.5}
+                      />
+                    ) : null}
                     {r.kind === "room" ? (
                       <Rect
-                        x={cx - radius * 1.6}
-                        y={cy - radius}
-                        width={radius * 3.2}
-                        height={radius * 2}
-                        rx={3}
-                        fill={FILL[state]}
-                        opacity={state === "taken" ? 0.55 : 1}
+                        x={cx - r0 * 1.6}
+                        y={cy - r0}
+                        width={r0 * 3.2}
+                        height={r0 * 2}
+                        rx={4}
+                        fill={skin.fill}
+                        stroke={skin.stroke}
+                        strokeWidth={skin.stroke ? r0 * 0.5 : 0}
+                        opacity={skin.opacity}
                       />
                     ) : (
                       <Circle
                         cx={cx}
                         cy={cy}
-                        r={radius}
-                        fill={FILL[state]}
-                        opacity={state === "taken" ? 0.55 : 1}
+                        r={r0}
+                        fill={skin.fill}
+                        stroke={skin.stroke}
+                        strokeWidth={skin.stroke ? r0 * 0.5 : 0}
+                        opacity={skin.opacity}
                       />
                     )}
                     {showLabels ? (
                       <SvgText
                         x={cx}
-                        y={cy + radius * 2.6}
-                        fontSize={radius * 1.1}
-                        fill={colors.muted}
+                        y={cy + r0 * 2.8}
+                        fontSize={r0 * 1.15}
+                        fill={theme.color.muted}
                         textAnchor="middle"
                       >
                         {shortLabel(r.code)}
@@ -252,29 +288,52 @@ export function FloorPlan({ resources, zones = [], plan, aspectRatio, onSelect }
         </Animated.View>
 
         <View style={styles.legend} pointerEvents="none">
-        {(["free", "taken", "yours", "unavailable"] as const).map((s) => (
-          <View key={s} style={styles.legendItem}>
-            <View style={[styles.swatch, { backgroundColor: FILL[s] }]} />
-            <Text style={styles.legendText}>
-              {{ free: "Free", taken: "Taken", yours: "Yours", unavailable: "Closed" }[s]}
-              </Text>
-            </View>
-          ))}
+          {(["free", "taken", "yours", "unavailable"] as const).map((s) => {
+            const skin = paint(theme.color, s);
+            return (
+              <View key={s} style={styles.legendItem}>
+                <View
+                  style={[
+                    styles.swatch,
+                    {
+                      backgroundColor: skin.fill === "none" ? "transparent" : skin.fill,
+                      opacity: skin.opacity,
+                      borderWidth: skin.stroke ? 2 : 0,
+                      borderColor: skin.stroke,
+                    },
+                    skin.ring && styles.swatchRing,
+                  ]}
+                />
+                <Text style={styles.legendText}>
+                  {{ free: "Free", taken: "Taken", yours: "Yours", unavailable: "Closed" }[s]}
+                </Text>
+              </View>
+            );
+          })}
         </View>
       </View>
     </GestureDetector>
   );
 }
 
-const styles = StyleSheet.create({
-  viewport: { overflow: "hidden", backgroundColor: colors.bg },
+const makeStyles = (t: Theme) => ({
+  viewport: { overflow: "hidden" as const, backgroundColor: t.color.ground },
   canvas: { flex: 1 },
   legend: {
-    position: "absolute", bottom: 8, left: 8, right: 8,
-    flexDirection: "row", gap: 12, flexWrap: "wrap",
-    backgroundColor: "rgba(11,13,18,0.82)", borderRadius: 10, padding: 6,
+    position: "absolute" as const,
+    bottom: spacing(1),
+    left: spacing(1),
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: spacing(1.5),
+    flexWrap: "wrap" as const,
+    backgroundColor: t.color.surface,
+    borderRadius: rad.pill,
+    paddingVertical: spacing(0.75),
+    paddingHorizontal: spacing(1.5),
   },
-  legendItem: { flexDirection: "row", alignItems: "center", gap: 4 },
-  swatch: { width: 8, height: 8, borderRadius: 4 },
-  legendText: { color: colors.muted, fontSize: 11 },
+  legendItem: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing(0.5) },
+  swatch: { width: 9, height: 9, borderRadius: rad.pill },
+  swatchRing: { borderWidth: 2, borderColor: t.color.state.yours },
+  legendText: { ...type.label, fontSize: 10, letterSpacing: 0.5, color: t.color.muted },
 });
