@@ -202,6 +202,205 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/plans/{asset_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Plan */
+        get: operations["get_plan_v1_plans__asset_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/sites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Site
+         * @description FR-8.1. The timezone is the site's, and it is the authority for "a day" (TDD §5).
+         */
+        post: operations["create_site_v1_admin_sites_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/sites/{site_id}/floors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Floors */
+        get: operations["list_floors_v1_admin_sites__site_id__floors_get"];
+        put?: never;
+        /** Create Floor */
+        post: operations["create_floor_v1_admin_sites__site_id__floors_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Groups
+         * @description Zone permissions are granted to groups (FR-6.4), so the editor needs the list.
+         */
+        get: operations["list_groups_v1_admin_groups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/floors/{floor_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Open Floor */
+        get: operations["open_floor_v1_admin_floors__floor_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/floors/{floor_id}/layout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Layout
+         * @description Explicit, batched save (TDD §14.3). Writes a draft; employees see nothing yet.
+         */
+        put: operations["save_layout_v1_admin_floors__floor_id__layout_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/floors/{floor_id}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Discard Draft */
+        delete: operations["discard_draft_v1_admin_floors__floor_id__draft_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/floors/{floor_id}/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Plan
+         * @description Upload an image or PDF; the server rasterizes and returns dimensions (TDD §14.3).
+         *
+         *     The asset is attached to the DRAFT, not to the live floor. Replacing a plan is an
+         *     edit like any other and must not become visible to employees before publish — and
+         *     the aspect-ratio warning (TDD §14.2) has to be reviewable before it takes effect.
+         */
+        post: operations["upload_plan_v1_admin_floors__floor_id__plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/floors/{floor_id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preflight
+         * @description What publishing would do, including the bookings it would strand (TDD §14.3).
+         */
+        get: operations["preflight_v1_admin_floors__floor_id__publish_get"];
+        put?: never;
+        /** Publish */
+        post: operations["publish_v1_admin_floors__floor_id__publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/floors/{floor_id}/codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Taken Codes
+         * @description Codes already used elsewhere on this site.
+         *
+         *     Bulk creation generates names from a pattern (`4F-A-{01..24}`), and the constraint
+         *     it can violate is site-wide, not floor-wide. Handing the editor the taken codes lets
+         *     it show the clash while the admin is still typing the pattern, instead of failing
+         *     the whole batch on save.
+         */
+        get: operations["taken_codes_v1_admin_floors__floor_id__codes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -243,6 +442,11 @@ export interface components {
             resources: components["schemas"]["ResourceAvailabilityOut"][];
             /** Zones */
             zones: components["schemas"]["ZoneOut"][];
+        };
+        /** Body_upload_plan_v1_admin_floors__floor_id__plan_post */
+        Body_upload_plan_v1_admin_floors__floor_id__plan_post: {
+            /** File */
+            file: string;
         };
         /** BookingOut */
         BookingOut: {
@@ -340,6 +544,46 @@ export interface components {
             /** Authorize Url */
             authorize_url?: string | null;
         };
+        /**
+         * FloorEditorOut
+         * @description Everything the editor needs to open a floor, in one round trip.
+         */
+        FloorEditorOut: {
+            floor: components["schemas"]["FloorSummaryOut"];
+            site: components["schemas"]["app__api__v1__admin__SiteOut"];
+            plan: components["schemas"]["PlanOut"] | null;
+            layout: components["schemas"]["FloorLayout"];
+            /** Is Draft */
+            is_draft: boolean;
+            /** Draft Updated At */
+            draft_updated_at: string | null;
+            /** Groups */
+            groups: components["schemas"]["GroupOut"][];
+        };
+        /** FloorIn */
+        FloorIn: {
+            /** Name */
+            name: string;
+            /**
+             * Ordinal
+             * @default 0
+             */
+            ordinal: number;
+        };
+        /** FloorLayout */
+        FloorLayout: {
+            /**
+             * Version
+             * @default 1
+             */
+            version: number;
+            /** Plan Asset Id */
+            plan_asset_id?: string | null;
+            /** Resources */
+            resources?: components["schemas"]["LayoutResource"][];
+            /** Zones */
+            zones?: components["schemas"]["LayoutZone"][];
+        };
         /** FloorOut */
         FloorOut: {
             /**
@@ -361,10 +605,135 @@ export interface components {
             /** Plan Height Px */
             plan_height_px: number | null;
         };
+        /** FloorSummaryOut */
+        FloorSummaryOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Site Id
+             * Format: uuid
+             */
+            site_id: string;
+            /** Name */
+            name: string;
+            /** Ordinal */
+            ordinal: number;
+            /** Plan Width Px */
+            plan_width_px: number | null;
+            /** Plan Height Px */
+            plan_height_px: number | null;
+            /** Published At */
+            published_at: string | null;
+            /** Resource Count */
+            resource_count: number;
+            /** Has Draft */
+            has_draft: boolean;
+        };
+        /** GroupOut */
+        GroupOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Kind */
+            kind: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** LayoutResource */
+        LayoutResource: {
+            /** Key */
+            key: string;
+            /** Id */
+            id?: string | null;
+            /**
+             * Kind
+             * @default desk
+             * @enum {string}
+             */
+            kind: "desk" | "room";
+            /** Code */
+            code: string;
+            /** Name */
+            name?: string | null;
+            position: components["schemas"]["Position"];
+            /**
+             * Capacity
+             * @default 1
+             */
+            capacity: number;
+            /** Attributes */
+            attributes?: {
+                [key: string]: unknown;
+            };
+            /** Zone Key */
+            zone_key?: string | null;
+            /**
+             * Bookable
+             * @default true
+             */
+            bookable: boolean;
+            /** Out Of Service Reason */
+            out_of_service_reason?: string | null;
+        };
+        /** LayoutSavedOut */
+        LayoutSavedOut: {
+            /** Base Version */
+            base_version: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            layout: components["schemas"]["FloorLayout"];
+        };
+        /** LayoutZone */
+        LayoutZone: {
+            /** Key */
+            key: string;
+            /** Id */
+            id?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Kind
+             * @default neighborhood
+             */
+            kind: string;
+            /** Polygon */
+            polygon?: [
+                number,
+                number
+            ][];
+            /** Color */
+            color?: string | null;
+            /** Permissions */
+            permissions?: components["schemas"]["LayoutZonePermission"][];
+        };
+        /** LayoutZonePermission */
+        LayoutZonePermission: {
+            /**
+             * Group Id
+             * Format: uuid
+             */
+            group_id: string;
+            /**
+             * Mode
+             * @default exclusive
+             * @enum {string}
+             */
+            mode: "exclusive" | "preferred" | "open_after";
+            /** Opens At Local */
+            opens_at_local?: string | null;
         };
         /** MeResponse */
         MeResponse: {
@@ -390,6 +759,47 @@ export interface components {
             presence_visibility: string;
             /** Roles */
             roles: string[];
+        };
+        /** PlanOut */
+        PlanOut: {
+            /**
+             * Asset Id
+             * Format: uuid
+             */
+            asset_id: string;
+            /** Url */
+            url: string;
+            /** Width Px */
+            width_px: number;
+            /** Height Px */
+            height_px: number;
+            /** Content Type */
+            content_type: string;
+            /**
+             * Converted
+             * @default false
+             */
+            converted: boolean;
+        };
+        /** Position */
+        Position: {
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+            /**
+             * Rotation
+             * @default 0
+             */
+            rotation: number;
+        };
+        /** PublishIn */
+        PublishIn: {
+            /**
+             * Accept Orphans
+             * @default false
+             */
+            accept_orphans: boolean;
         };
         /** RefreshRequest */
         RefreshRequest: {
@@ -465,21 +875,18 @@ export interface components {
             /** Site Timezone */
             site_timezone: string;
         };
-        /** SiteOut */
-        SiteOut: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
+        /** SiteIn */
+        SiteIn: {
             /** Name */
             name: string;
             /** Timezone */
             timezone: string;
             /** Address */
-            address: string | null;
-            /** Checkin Enabled */
-            checkin_enabled: boolean;
+            address?: string | null;
+            /** Opening Hours */
+            opening_hours?: {
+                [key: string]: unknown;
+            };
         };
         /** UpdateMe */
         UpdateMe: {
@@ -516,6 +923,36 @@ export interface components {
             polygon: unknown[];
             /** Color */
             color: string | null;
+        };
+        /** SiteOut */
+        app__api__v1__admin__SiteOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Timezone */
+            timezone: string;
+            /** Address */
+            address: string | null;
+        };
+        /** SiteOut */
+        app__api__v1__spaces__SiteOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Timezone */
+            timezone: string;
+            /** Address */
+            address: string | null;
+            /** Checkin Enabled */
+            checkin_enabled: boolean;
         };
     };
     responses: never;
@@ -706,7 +1143,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SiteOut"][];
+                    "application/json": components["schemas"]["app__api__v1__spaces__SiteOut"][];
                 };
             };
         };
@@ -900,6 +1337,392 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BookingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_plan_v1_plans__asset_id__get: {
+        parameters: {
+            query: {
+                /** @description Signed capability token from the plan URL */
+                t: string;
+            };
+            header?: never;
+            path: {
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The plan image */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_site_v1_admin_sites_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__api__v1__admin__SiteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_floors_v1_admin_sites__site_id__floors_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FloorSummaryOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_floor_v1_admin_sites__site_id__floors_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FloorIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FloorSummaryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_groups_v1_admin_groups_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupOut"][];
+                };
+            };
+        };
+    };
+    open_floor_v1_admin_floors__floor_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                floor_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FloorEditorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_layout_v1_admin_floors__floor_id__layout_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                floor_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FloorLayout"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LayoutSavedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discard_draft_v1_admin_floors__floor_id__draft_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                floor_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_plan_v1_admin_floors__floor_id__plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                floor_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_plan_v1_admin_floors__floor_id__plan_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preflight_v1_admin_floors__floor_id__publish_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                floor_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publish_v1_admin_floors__floor_id__publish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                floor_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    taken_codes_v1_admin_floors__floor_id__codes_get: {
+        parameters: {
+            query?: {
+                prefix?: string | null;
+            };
+            header?: never;
+            path: {
+                floor_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
                 };
             };
             /** @description Validation Error */

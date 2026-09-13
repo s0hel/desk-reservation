@@ -25,6 +25,18 @@ class Settings(BaseSettings):
 
     enable_dev_login: bool = False
 
+    # Floor plan assets (TDD §14.3). Local disk in development; S3 replaces the store
+    # behind app/services/storage.py without the callers changing.
+    storage_dir: str = "var/storage"
+    max_plan_upload_bytes: int = 25 * 1024 * 1024
+    #: Longest edge a rasterized plan is allowed to have. Facilities teams upload
+    #: architectural scans at absurd resolutions; the viewer draws them at phone width.
+    plan_max_edge_px: int = 4000
+    plan_pdf_render_width_px: int = 2400
+    #: Plan URLs are signed rather than bearer-authenticated: <Image> tags in the mobile
+    #: renderer cannot attach an Authorization header (TDD §11, "signed CDN url").
+    plan_url_ttl_seconds: int = 3600
+
     log_level: str = "INFO"
     sql_echo: bool = False
 

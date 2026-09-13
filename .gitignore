@@ -18,6 +18,9 @@ apps/mobile/android/
 .idea/
 .vscode/
 
+# uploaded floor plans in development; S3 in staging and production (TDD §14.3)
+services/api/var/
+
 # env & local
 .env
 .env.local

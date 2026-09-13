@@ -38,6 +38,24 @@ def notifier_of(sender) -> Notifier:
     return Notifier(senders=(sender,))
 
 
+@pytest.fixture(autouse=True)
+async def empty_queue() -> None:
+    """Start each test from an empty dispatch queue.
+
+    `outbox_dispatch` is deliberately global (migration 0002) — that is the whole point
+    of splitting routing from content, and it is what lets a worker find work across
+    tenants without BYPASSRLS. The consequence for tests is that a queue is shared
+    state: any other test that commits a booking or a cancellation leaves rows here, and
+    a drain asserting `claimed == 1` then counts somebody else's event. Scoping the
+    assertions per-tenant would test something weaker than what the worker actually
+    does, so clear the queue instead.
+    """
+    async with SessionFactory() as s:
+        await s.begin()
+        await s.execute(text("DELETE FROM outbox_dispatch"))
+        await s.commit()
+
+
 @pytest.fixture
 async def org() -> uuid.UUID:
     org_id = uuid.uuid4()

@@ -212,7 +212,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/SiteOut"
+                    "$ref": "#/components/schemas/app__api__v1__spaces__SiteOut"
                   },
                   "type": "array",
                   "title": "Response List Sites V1 Sites Get"
@@ -638,6 +638,573 @@
           }
         }
       }
+    },
+    "/v1/plans/{asset_id}": {
+      "get": {
+        "tags": [
+          "plans"
+        ],
+        "summary": "Get Plan",
+        "operationId": "get_plan_v1_plans__asset_id__get",
+        "parameters": [
+          {
+            "name": "asset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Asset Id"
+            }
+          },
+          {
+            "name": "t",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Signed capability token from the plan URL",
+              "title": "T"
+            },
+            "description": "Signed capability token from the plan URL"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The plan image",
+            "content": {
+              "image/png": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/sites": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Create Site",
+        "description": "FR-8.1. The timezone is the site's, and it is the authority for \"a day\" (TDD \u00a75).",
+        "operationId": "create_site_v1_admin_sites_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__api__v1__admin__SiteOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/sites/{site_id}/floors": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Create Floor",
+        "operationId": "create_floor_v1_admin_sites__site_id__floors_post",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Site Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FloorIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FloorSummaryOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List Floors",
+        "operationId": "list_floors_v1_admin_sites__site_id__floors_get",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Site Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FloorSummaryOut"
+                  },
+                  "title": "Response List Floors V1 Admin Sites  Site Id  Floors Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/groups": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List Groups",
+        "description": "Zone permissions are granted to groups (FR-6.4), so the editor needs the list.",
+        "operationId": "list_groups_v1_admin_groups_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GroupOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Groups V1 Admin Groups Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/floors/{floor_id}": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Open Floor",
+        "operationId": "open_floor_v1_admin_floors__floor_id__get",
+        "parameters": [
+          {
+            "name": "floor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Floor Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FloorEditorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/floors/{floor_id}/layout": {
+      "put": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Save Layout",
+        "description": "Explicit, batched save (TDD \u00a714.3). Writes a draft; employees see nothing yet.",
+        "operationId": "save_layout_v1_admin_floors__floor_id__layout_put",
+        "parameters": [
+          {
+            "name": "floor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Floor Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FloorLayout"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LayoutSavedOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/floors/{floor_id}/draft": {
+      "delete": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Discard Draft",
+        "operationId": "discard_draft_v1_admin_floors__floor_id__draft_delete",
+        "parameters": [
+          {
+            "name": "floor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Floor Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/floors/{floor_id}/plan": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Upload Plan",
+        "description": "Upload an image or PDF; the server rasterizes and returns dimensions (TDD \u00a714.3).\n\nThe asset is attached to the DRAFT, not to the live floor. Replacing a plan is an\nedit like any other and must not become visible to employees before publish \u2014 and\nthe aspect-ratio warning (TDD \u00a714.2) has to be reviewable before it takes effect.",
+        "operationId": "upload_plan_v1_admin_floors__floor_id__plan_post",
+        "parameters": [
+          {
+            "name": "floor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Floor Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_plan_v1_admin_floors__floor_id__plan_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/floors/{floor_id}/publish": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Preflight",
+        "description": "What publishing would do, including the bookings it would strand (TDD \u00a714.3).",
+        "operationId": "preflight_v1_admin_floors__floor_id__publish_get",
+        "parameters": [
+          {
+            "name": "floor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Floor Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Preflight V1 Admin Floors  Floor Id  Publish Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Publish",
+        "operationId": "publish_v1_admin_floors__floor_id__publish_post",
+        "parameters": [
+          {
+            "name": "floor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Floor Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Publish V1 Admin Floors  Floor Id  Publish Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/floors/{floor_id}/codes": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Taken Codes",
+        "description": "Codes already used elsewhere on this site.\n\nBulk creation generates names from a pattern (`4F-A-{01..24}`), and the constraint\nit can violate is site-wide, not floor-wide. Handing the editor the taken codes lets\nit show the clash while the admin is still typing the pattern, instead of failing\nthe whole batch on save.",
+        "operationId": "taken_codes_v1_admin_floors__floor_id__codes_get",
+        "parameters": [
+          {
+            "name": "floor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Floor Id"
+            }
+          },
+          {
+            "name": "prefix",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 50
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Prefix"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response Taken Codes V1 Admin Floors  Floor Id  Codes Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -715,6 +1282,20 @@
           "zones"
         ],
         "title": "AvailabilityOut"
+      },
+      "Body_upload_plan_v1_admin_floors__floor_id__plan_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_plan_v1_admin_floors__floor_id__plan_post"
       },
       "BookingOut": {
         "properties": {
@@ -915,6 +1496,122 @@
         ],
         "title": "DiscoverResponse"
       },
+      "FloorEditorOut": {
+        "properties": {
+          "floor": {
+            "$ref": "#/components/schemas/FloorSummaryOut"
+          },
+          "site": {
+            "$ref": "#/components/schemas/app__api__v1__admin__SiteOut"
+          },
+          "plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlanOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "layout": {
+            "$ref": "#/components/schemas/FloorLayout"
+          },
+          "is_draft": {
+            "type": "boolean",
+            "title": "Is Draft"
+          },
+          "draft_updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draft Updated At"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/GroupOut"
+            },
+            "type": "array",
+            "title": "Groups"
+          }
+        },
+        "type": "object",
+        "required": [
+          "floor",
+          "site",
+          "plan",
+          "layout",
+          "is_draft",
+          "draft_updated_at",
+          "groups"
+        ],
+        "title": "FloorEditorOut",
+        "description": "Everything the editor needs to open a floor, in one round trip."
+      },
+      "FloorIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "ordinal": {
+            "type": "integer",
+            "title": "Ordinal",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "FloorIn"
+      },
+      "FloorLayout": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "title": "Version",
+            "default": 1
+          },
+          "plan_asset_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Asset Id"
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/components/schemas/LayoutResource"
+            },
+            "type": "array",
+            "title": "Resources"
+          },
+          "zones": {
+            "items": {
+              "$ref": "#/components/schemas/LayoutZone"
+            },
+            "type": "array",
+            "title": "Zones"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "FloorLayout"
+      },
       "FloorOut": {
         "properties": {
           "id": {
@@ -969,6 +1666,107 @@
         ],
         "title": "FloorOut"
       },
+      "FloorSummaryOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "site_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Site Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "ordinal": {
+            "type": "integer",
+            "title": "Ordinal"
+          },
+          "plan_width_px": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Width Px"
+          },
+          "plan_height_px": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Height Px"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "resource_count": {
+            "type": "integer",
+            "title": "Resource Count"
+          },
+          "has_draft": {
+            "type": "boolean",
+            "title": "Has Draft"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "site_id",
+          "name",
+          "ordinal",
+          "plan_width_px",
+          "plan_height_px",
+          "published_at",
+          "resource_count",
+          "has_draft"
+        ],
+        "title": "FloorSummaryOut"
+      },
+      "GroupOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "kind"
+        ],
+        "title": "GroupOut"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -981,6 +1779,238 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "LayoutResource": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Key"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "desk",
+              "room"
+            ],
+            "title": "Kind",
+            "default": "desk"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Code"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "position": {
+            "$ref": "#/components/schemas/Position"
+          },
+          "capacity": {
+            "type": "integer",
+            "maximum": 500.0,
+            "minimum": 1.0,
+            "title": "Capacity",
+            "default": 1
+          },
+          "attributes": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Attributes"
+          },
+          "zone_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zone Key"
+          },
+          "bookable": {
+            "type": "boolean",
+            "title": "Bookable",
+            "default": true
+          },
+          "out_of_service_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Out Of Service Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "code",
+          "position"
+        ],
+        "title": "LayoutResource"
+      },
+      "LayoutSavedOut": {
+        "properties": {
+          "base_version": {
+            "type": "integer",
+            "title": "Base Version"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "layout": {
+            "$ref": "#/components/schemas/FloorLayout"
+          }
+        },
+        "type": "object",
+        "required": [
+          "base_version",
+          "updated_at",
+          "layout"
+        ],
+        "title": "LayoutSavedOut"
+      },
+      "LayoutZone": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Key"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "default": "neighborhood"
+          },
+          "polygon": {
+            "items": {
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array",
+              "maxItems": 2,
+              "minItems": 2
+            },
+            "type": "array",
+            "title": "Polygon"
+          },
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "permissions": {
+            "items": {
+              "$ref": "#/components/schemas/LayoutZonePermission"
+            },
+            "type": "array",
+            "title": "Permissions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "name"
+        ],
+        "title": "LayoutZone"
+      },
+      "LayoutZonePermission": {
+        "properties": {
+          "group_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Group Id"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "exclusive",
+              "preferred",
+              "open_after"
+            ],
+            "title": "Mode",
+            "default": "exclusive"
+          },
+          "opens_at_local": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opens At Local"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "group_id"
+        ],
+        "title": "LayoutZonePermission"
       },
       "MeResponse": {
         "properties": {
@@ -1042,6 +2072,86 @@
           "roles"
         ],
         "title": "MeResponse"
+      },
+      "PlanOut": {
+        "properties": {
+          "asset_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Asset Id"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "width_px": {
+            "type": "integer",
+            "title": "Width Px"
+          },
+          "height_px": {
+            "type": "integer",
+            "title": "Height Px"
+          },
+          "content_type": {
+            "type": "string",
+            "title": "Content Type"
+          },
+          "converted": {
+            "type": "boolean",
+            "title": "Converted",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "asset_id",
+          "url",
+          "width_px",
+          "height_px",
+          "content_type"
+        ],
+        "title": "PlanOut"
+      },
+      "Position": {
+        "properties": {
+          "x": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "X"
+          },
+          "y": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Y"
+          },
+          "rotation": {
+            "type": "number",
+            "maximum": 360.0,
+            "minimum": -360.0,
+            "title": "Rotation",
+            "default": 0.0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "Position"
+      },
+      "PublishIn": {
+        "properties": {
+          "accept_orphans": {
+            "type": "boolean",
+            "title": "Accept Orphans",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "PublishIn"
       },
       "RefreshRequest": {
         "properties": {
@@ -1231,19 +2341,18 @@
         ],
         "title": "ResourceOut"
       },
-      "SiteOut": {
+      "SiteIn": {
         "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
           "name": {
             "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
             "title": "Name"
           },
           "timezone": {
             "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
             "title": "Timezone"
           },
           "address": {
@@ -1257,20 +2366,18 @@
             ],
             "title": "Address"
           },
-          "checkin_enabled": {
-            "type": "boolean",
-            "title": "Checkin Enabled"
+          "opening_hours": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Opening Hours"
           }
         },
         "type": "object",
         "required": [
-          "id",
           "name",
-          "timezone",
-          "address",
-          "checkin_enabled"
+          "timezone"
         ],
-        "title": "SiteOut"
+        "title": "SiteIn"
       },
       "UpdateMe": {
         "properties": {
@@ -1388,6 +2495,83 @@
           "color"
         ],
         "title": "ZoneOut"
+      },
+      "app__api__v1__admin__SiteOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "timezone",
+          "address"
+        ],
+        "title": "SiteOut"
+      },
+      "app__api__v1__spaces__SiteOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "checkin_enabled": {
+            "type": "boolean",
+            "title": "Checkin Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "timezone",
+          "address",
+          "checkin_enabled"
+        ],
+        "title": "SiteOut"
       }
     }
   }

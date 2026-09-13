@@ -52,6 +52,22 @@ class Floor(Base, PKMixin, TimestampMixin, OrgScopedMixin):
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class FloorDraft(Base, PKMixin, TimestampMixin, OrgScopedMixin):
+    """Unpublished layout for one floor, held as a document rather than as rows
+    (migration 0003, TDD §14.3). Availability never reads this — that is the point."""
+
+    __tablename__ = "floor_drafts"
+
+    floor_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("floors.id", ondelete="CASCADE"), unique=True
+    )
+    layout: Mapped[dict] = mapped_column(JSONB, default=dict)
+    base_version: Mapped[int] = mapped_column(Integer, default=0)
+    updated_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL")
+    )
+
+
 class Zone(Base, PKMixin, TimestampMixin, OrgScopedMixin):
     __tablename__ = "zones"
 

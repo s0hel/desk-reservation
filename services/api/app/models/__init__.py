@@ -1,4 +1,11 @@
-from app.models.booking import Absence, Booking, BookingAttendee, BookingStatus, CheckinEvent
+from app.models.booking import (
+    ACTIVE_STATUSES,
+    Absence,
+    Booking,
+    BookingAttendee,
+    BookingStatus,
+    CheckinEvent,
+)
 from app.models.ops import AuditLog, Outbox, OutboxDispatch
 from app.models.org import (
     Device,
@@ -12,9 +19,18 @@ from app.models.org import (
     User,
 )
 from app.models.policy import Blackout, Policy, ZonePermission
-from app.models.space import Floor, FloorPlanAsset, Resource, ResourceKind, Site, Zone
+from app.models.space import (
+    Floor,
+    FloorDraft,
+    FloorPlanAsset,
+    Resource,
+    ResourceKind,
+    Site,
+    Zone,
+)
 
 __all__ = [
+    "ACTIVE_STATUSES",
     "Absence",
     "AuditLog",
     "Blackout",
@@ -24,6 +40,7 @@ __all__ = [
     "CheckinEvent",
     "Device",
     "Floor",
+    "FloorDraft",
     "FloorPlanAsset",
     "Group",
     "GroupMember",

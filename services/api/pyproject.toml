@@ -17,6 +17,10 @@ dependencies = [
     "structlog>=24.4",
     "orjson>=3.10",
     "python-multipart>=0.0.17",
+    # Floor plan ingest (TDD §14.3). pypdfium2 rather than PyMuPDF: same job, BSD/Apache
+    # licensed rather than AGPL, and it ships wheels so there is no poppler to install.
+    "pillow>=11.0",
+    "pypdfium2>=4.30",
 ]
 
 [dependency-groups]
