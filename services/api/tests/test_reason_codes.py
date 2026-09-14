@@ -33,8 +33,13 @@ def test_the_two_copies_hold_the_same_codes():
 
 
 def test_every_code_is_namespaced():
-    """`policy.` / `resource.` / `presence.` — a bare slug gives the client nothing to
-    group on, and these strings are a public contract."""
+    """`policy.` / `resource.` / `presence.` / `admin.` — a bare slug gives the client
+    nothing to group on, and these strings are a public contract.
+
+    `admin.` is the console's namespace: those refusals reach an administrator rather
+    than an employee, and keeping them separate is what stops a client mapping one into
+    the booking-refusal vocabulary, where it would render as advice to a person who
+    cannot act on it."""
     for code in codes.ALL:
         assert "." in code, code
-        assert code.split(".", 1)[0] in {"policy", "resource", "presence"}, code
+        assert code.split(".", 1)[0] in {"policy", "resource", "presence", "admin"}, code

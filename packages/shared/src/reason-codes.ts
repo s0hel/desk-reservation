@@ -30,6 +30,11 @@ export const REASON_CODES = {
   ABSENCE_CONFLICTS_WITH_BOOKING: "presence.absence_conflicts_with_booking",
   ABSENCE_KIND_UNKNOWN: "presence.absence_kind_unknown",
   VISIBILITY_UNKNOWN: "presence.visibility_unknown",
+  // Admin-console refusals (FR-8.4), in the same envelope as a booking refusal.
+  LAST_ORG_ADMIN: "admin.last_org_admin",
+  GROUP_IN_USE: "admin.group_in_use",
+  EMAIL_TAKEN: "admin.email_taken",
+  UNKNOWN_ROLE: "admin.unknown_role",
   RESOURCE_UNAVAILABLE: "resource.unavailable",
   RESOURCE_OUT_OF_SERVICE: "resource.out_of_service",
 } as const;

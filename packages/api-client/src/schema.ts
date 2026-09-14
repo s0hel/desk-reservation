@@ -409,26 +409,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/groups": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Groups
-         * @description Zone permissions are granted to groups (FR-6.4), so the editor needs the list.
-         */
-        get: operations["list_groups_v1_admin_groups_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/admin/floors/{floor_id}": {
         parameters: {
             query?: never;
@@ -618,6 +598,175 @@ export interface paths {
          *     were cancelled, the people were told, and the desks may well be gone.
          */
         delete: operations["delete_blackout_v1_admin_blackouts__blackout_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Users
+         * @description The directory (FR-8.4).
+         *
+         *     Deactivated people are hidden by default and findable on request: they still hold
+         *     history, and an admin looking for "did we ever have a Dana" needs to find her.
+         */
+        get: operations["list_users_v1_admin_users_get"];
+        put?: never;
+        /** Create User */
+        post: operations["create_user_v1_admin_users_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get User */
+        get: operations["get_user_v1_admin_users__user_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update User */
+        patch: operations["update_user_v1_admin_users__user_id__patch"];
+        trace?: never;
+    };
+    "/v1/admin/users/{user_id}/deactivation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Deactivation
+         * @description What deactivating this person would release, before it happens.
+         *
+         *     The third preview of this shape in the console — floor-plan publish, blackout, this
+         *     — and they exist for one reason: every destructive admin action in this product
+         *     tells you its cost while you can still decline to pay it.
+         */
+        get: operations["preview_deactivation_v1_admin_users__user_id__deactivation_get"];
+        put?: never;
+        /** Deactivate User */
+        post: operations["deactivate_user_v1_admin_users__user_id__deactivation_post"];
+        /** Reactivate User */
+        delete: operations["reactivate_user_v1_admin_users__user_id__deactivation_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{user_id}/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Roles
+         * @description Replace someone's roles (FR-1.8). `org_admin` only — see the module docstring.
+         */
+        put: operations["set_roles_v1_admin_users__user_id__roles_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Groups
+         * @description Every group, with what depends on it.
+         *
+         *     The counts come from two aggregate queries rather than two per group: the zone list
+         *     is not decoration, it is what the delete button reads to decide whether it can be
+         *     offered at all, so it has to be on the list view and it has to be cheap.
+         */
+        get: operations["list_groups_v1_admin_groups_get"];
+        put?: never;
+        /** Create Group */
+        post: operations["create_group_v1_admin_groups_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/groups/{group_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Group
+         * @description Refused while a zone's access depends on it — see `people.delete_group`.
+         */
+        delete: operations["delete_group_v1_admin_groups__group_id__delete"];
+        options?: never;
+        head?: never;
+        /** Rename Group */
+        patch: operations["rename_group_v1_admin_groups__group_id__patch"];
+        trace?: never;
+    };
+    "/v1/admin/groups/{group_id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Members */
+        get: operations["list_members_v1_admin_groups__group_id__members_get"];
+        put?: never;
+        /** Add Member */
+        post: operations["add_member_v1_admin_groups__group_id__members_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/groups/{group_id}/members/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Member */
+        delete: operations["remove_member_v1_admin_groups__group_id__members__user_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -906,6 +1055,17 @@ export interface components {
             status: string;
             seat: components["schemas"]["SeatOut"] | null;
         };
+        /** DeactivationOut */
+        DeactivationOut: {
+            /** Bookings */
+            bookings: number;
+            /** Sample */
+            sample: string[];
+            /** Groups */
+            groups: number;
+            /** Is Last Admin */
+            is_last_admin: boolean;
+        };
         /** DiscoverRequest */
         DiscoverRequest: {
             /**
@@ -942,7 +1102,7 @@ export interface components {
             /** Draft Updated At */
             draft_updated_at: string | null;
             /** Groups */
-            groups: components["schemas"]["GroupOut"][];
+            groups: components["schemas"]["app__api__v1__admin__GroupOut"][];
         };
         /** FloorIn */
         FloorIn: {
@@ -1016,8 +1176,18 @@ export interface components {
             /** Has Draft */
             has_draft: boolean;
         };
-        /** GroupOut */
-        GroupOut: {
+        /** GroupIn */
+        GroupIn: {
+            /** Name */
+            name: string;
+            /**
+             * Kind
+             * @default team
+             */
+            kind: string;
+        };
+        /** GroupRefOut */
+        GroupRefOut: {
             /**
              * Id
              * Format: uuid
@@ -1025,8 +1195,18 @@ export interface components {
             id: string;
             /** Name */
             name: string;
-            /** Kind */
-            kind: string;
+        };
+        /** GroupZoneOut */
+        GroupZoneOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Mode */
+            mode: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1147,6 +1327,35 @@ export interface components {
             features: {
                 [key: string]: boolean;
             };
+        };
+        /** MemberIn */
+        MemberIn: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /**
+             * Role
+             * @default member
+             */
+            role: string;
+        };
+        /** MemberOut */
+        MemberOut: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Display Name */
+            display_name: string;
+            /** Email */
+            email: string;
+            /** Role */
+            role: string;
+            /** Is Active */
+            is_active: boolean;
         };
         /** PersonOut */
         PersonOut: {
@@ -1277,6 +1486,20 @@ export interface components {
             /** Site Timezone */
             site_timezone: string;
         };
+        /** RoleOut */
+        RoleOut: {
+            /** Role */
+            role: string;
+            /** Scope Type */
+            scope_type: string;
+            /** Scope Id */
+            scope_id: string | null;
+        };
+        /** RolesIn */
+        RolesIn: {
+            /** Roles */
+            roles: components["schemas"]["RoleOut"][];
+        };
         /** SeatOut */
         SeatOut: {
             /**
@@ -1349,6 +1572,72 @@ export interface components {
             /** Home Site Id */
             home_site_id?: string | null;
         };
+        /** UserIn */
+        UserIn: {
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /** Display Name */
+            display_name: string;
+            /** Home Site Id */
+            home_site_id?: string | null;
+            /**
+             * Locale
+             * @default en
+             */
+            locale: string;
+        };
+        /** UserOut */
+        UserOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Email */
+            email: string;
+            /** Display Name */
+            display_name: string;
+            /** Locale */
+            locale: string;
+            /** Status */
+            status: string;
+            /** Home Site Id */
+            home_site_id: string | null;
+            /** Presence Visibility */
+            presence_visibility: string;
+            /** Is Active */
+            is_active: boolean;
+            /** Roles */
+            roles: components["schemas"]["RoleOut"][];
+            /** Groups */
+            groups: components["schemas"]["GroupRefOut"][];
+        };
+        /**
+         * UserPageOut
+         * @description A page of the directory.
+         *
+         *     `total` is the count of everyone matching the filter, not the length of `users` —
+         *     a console that cannot say "showing 50 of 480" makes an admin guess whether the
+         *     person they are looking for is simply further down.
+         */
+        UserPageOut: {
+            /** Total */
+            total: number;
+            /** Users */
+            users: components["schemas"]["UserOut"][];
+        };
+        /** UserPatch */
+        UserPatch: {
+            /** Display Name */
+            display_name?: string | null;
+            /** Home Site Id */
+            home_site_id?: string | null;
+            /** Locale */
+            locale?: string | null;
+        };
         /** UserPresenceOut */
         UserPresenceOut: {
             /**
@@ -1420,6 +1709,18 @@ export interface components {
             /** Color */
             color: string | null;
         };
+        /** GroupOut */
+        app__api__v1__admin__GroupOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Kind */
+            kind: string;
+        };
         /** PlanOut */
         app__api__v1__admin__PlanOut: {
             /**
@@ -1454,6 +1755,22 @@ export interface components {
             timezone: string;
             /** Address */
             address: string | null;
+        };
+        /** GroupOut */
+        app__api__v1__admin_people__GroupOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Kind */
+            kind: string;
+            /** Member Count */
+            member_count: number;
+            /** Zones */
+            zones: components["schemas"]["GroupZoneOut"][];
         };
         /**
          * PlanOut
@@ -2282,26 +2599,6 @@ export interface operations {
             };
         };
     };
-    list_groups_v1_admin_groups_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GroupOut"][];
-                };
-            };
-        };
-    };
     open_floor_v1_admin_floors__floor_id__get: {
         parameters: {
             query?: never;
@@ -2649,6 +2946,483 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_users_v1_admin_users_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                group?: string | null;
+                include_inactive?: boolean;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_user_v1_admin_users_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_user_v1_admin_users__user_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_user_v1_admin_users__user_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_deactivation_v1_admin_users__user_id__deactivation_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeactivationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deactivate_user_v1_admin_users__user_id__deactivation_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reactivate_user_v1_admin_users__user_id__deactivation_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_roles_v1_admin_users__user_id__roles_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RolesIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_groups_v1_admin_groups_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__api__v1__admin_people__GroupOut"][];
+                };
+            };
+        };
+    };
+    create_group_v1_admin_groups_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__api__v1__admin_people__GroupOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_group_v1_admin_groups__group_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rename_group_v1_admin_groups__group_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__api__v1__admin_people__GroupOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_members_v1_admin_groups__group_id__members_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_member_v1_admin_groups__group_id__members_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_member_v1_admin_groups__group_id__members__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberOut"][];
+                };
             };
             /** @description Validation Error */
             422: {

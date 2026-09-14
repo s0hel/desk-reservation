@@ -1366,32 +1366,6 @@
         }
       }
     },
-    "/v1/admin/groups": {
-      "get": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "List Groups",
-        "description": "Zone permissions are granted to groups (FR-6.4), so the editor needs the list.",
-        "operationId": "list_groups_v1_admin_groups_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/GroupOut"
-                  },
-                  "type": "array",
-                  "title": "Response List Groups V1 Admin Groups Get"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/v1/admin/floors/{floor_id}": {
       "get": {
         "tags": [
@@ -1902,6 +1876,732 @@
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/users": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List Users",
+        "description": "The directory (FR-8.4).\n\nDeactivated people are hidden by default and findable on request: they still hold\nhistory, and an admin looking for \"did we ever have a Dana\" needs to find her.",
+        "operationId": "list_users_v1_admin_users_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "name": "group",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Group"
+            }
+          },
+          {
+            "name": "include_inactive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Inactive"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPageOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Create User",
+        "operationId": "create_user_v1_admin_users_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/users/{user_id}": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Get User",
+        "operationId": "get_user_v1_admin_users__user_id__get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Update User",
+        "operationId": "update_user_v1_admin_users__user_id__patch",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/users/{user_id}/deactivation": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Preview Deactivation",
+        "description": "What deactivating this person would release, before it happens.\n\nThe third preview of this shape in the console \u2014 floor-plan publish, blackout, this\n\u2014 and they exist for one reason: every destructive admin action in this product\ntells you its cost while you can still decline to pay it.",
+        "operationId": "preview_deactivation_v1_admin_users__user_id__deactivation_get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeactivationOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Deactivate User",
+        "operationId": "deactivate_user_v1_admin_users__user_id__deactivation_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Reactivate User",
+        "operationId": "reactivate_user_v1_admin_users__user_id__deactivation_delete",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/users/{user_id}/roles": {
+      "put": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Set Roles",
+        "description": "Replace someone's roles (FR-1.8). `org_admin` only \u2014 see the module docstring.",
+        "operationId": "set_roles_v1_admin_users__user_id__roles_put",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RolesIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/groups": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List Groups",
+        "description": "Every group, with what depends on it.\n\nThe counts come from two aggregate queries rather than two per group: the zone list\nis not decoration, it is what the delete button reads to decide whether it can be\noffered at all, so it has to be on the list view and it has to be cheap.",
+        "operationId": "list_groups_v1_admin_groups_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/app__api__v1__admin_people__GroupOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Groups V1 Admin Groups Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Create Group",
+        "operationId": "create_group_v1_admin_groups_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__api__v1__admin_people__GroupOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/groups/{group_id}": {
+      "patch": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Rename Group",
+        "operationId": "rename_group_v1_admin_groups__group_id__patch",
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Group Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__api__v1__admin_people__GroupOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Delete Group",
+        "description": "Refused while a zone's access depends on it \u2014 see `people.delete_group`.",
+        "operationId": "delete_group_v1_admin_groups__group_id__delete",
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Group Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/groups/{group_id}/members": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List Members",
+        "operationId": "list_members_v1_admin_groups__group_id__members_get",
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Group Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MemberOut"
+                  },
+                  "title": "Response List Members V1 Admin Groups  Group Id  Members Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Add Member",
+        "operationId": "add_member_v1_admin_groups__group_id__members_post",
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Group Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MemberOut"
+                  },
+                  "title": "Response Add Member V1 Admin Groups  Group Id  Members Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/groups/{group_id}/members/{user_id}": {
+      "delete": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Remove Member",
+        "operationId": "remove_member_v1_admin_groups__group_id__members__user_id__delete",
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Group Id"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MemberOut"
+                  },
+                  "title": "Response Remove Member V1 Admin Groups  Group Id  Members  User Id  Delete"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -2521,6 +3221,37 @@
         ],
         "title": "DayPresenceOut"
       },
+      "DeactivationOut": {
+        "properties": {
+          "bookings": {
+            "type": "integer",
+            "title": "Bookings"
+          },
+          "sample": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sample"
+          },
+          "groups": {
+            "type": "integer",
+            "title": "Groups"
+          },
+          "is_last_admin": {
+            "type": "boolean",
+            "title": "Is Last Admin"
+          }
+        },
+        "type": "object",
+        "required": [
+          "bookings",
+          "sample",
+          "groups",
+          "is_last_admin"
+        ],
+        "title": "DeactivationOut"
+      },
       "DiscoverRequest": {
         "properties": {
           "email": {
@@ -2609,7 +3340,7 @@
           },
           "groups": {
             "items": {
-              "$ref": "#/components/schemas/GroupOut"
+              "$ref": "#/components/schemas/app__api__v1__admin__GroupOut"
             },
             "type": "array",
             "title": "Groups"
@@ -2817,7 +3548,47 @@
         ],
         "title": "FloorSummaryOut"
       },
-      "GroupOut": {
+      "GroupIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "maxLength": 30,
+            "title": "Kind",
+            "default": "team"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "GroupIn"
+      },
+      "GroupRefOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "GroupRefOut"
+      },
+      "GroupZoneOut": {
         "properties": {
           "id": {
             "type": "string",
@@ -2828,18 +3599,18 @@
             "type": "string",
             "title": "Name"
           },
-          "kind": {
+          "mode": {
             "type": "string",
-            "title": "Kind"
+            "title": "Mode"
           }
         },
         "type": "object",
         "required": [
           "id",
           "name",
-          "kind"
+          "mode"
         ],
-        "title": "GroupOut"
+        "title": "GroupZoneOut"
       },
       "HTTPValidationError": {
         "properties": {
@@ -3154,6 +3925,60 @@
           "features"
         ],
         "title": "MeResponse"
+      },
+      "MemberIn": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "role": {
+            "type": "string",
+            "maxLength": 20,
+            "title": "Role",
+            "default": "member"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id"
+        ],
+        "title": "MemberIn"
+      },
+      "MemberOut": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "display_name",
+          "email",
+          "role",
+          "is_active"
+        ],
+        "title": "MemberOut"
       },
       "PersonOut": {
         "properties": {
@@ -3479,6 +4304,53 @@
         ],
         "title": "ResourceOut"
       },
+      "RoleOut": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "scope_type": {
+            "type": "string",
+            "title": "Scope Type"
+          },
+          "scope_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role",
+          "scope_type",
+          "scope_id"
+        ],
+        "title": "RoleOut"
+      },
+      "RolesIn": {
+        "properties": {
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/RoleOut"
+            },
+            "type": "array",
+            "title": "Roles"
+          }
+        },
+        "type": "object",
+        "required": [
+          "roles"
+        ],
+        "title": "RolesIn"
+      },
       "SeatOut": {
         "properties": {
           "floor_id": {
@@ -3697,6 +4569,183 @@
         "type": "object",
         "title": "UpdateMe"
       },
+      "UserIn": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "display_name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Display Name"
+          },
+          "home_site_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Site Id"
+          },
+          "locale": {
+            "type": "string",
+            "maxLength": 10,
+            "title": "Locale",
+            "default": "en"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "display_name"
+        ],
+        "title": "UserIn"
+      },
+      "UserOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "locale": {
+            "type": "string",
+            "title": "Locale"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "home_site_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Site Id"
+          },
+          "presence_visibility": {
+            "type": "string",
+            "title": "Presence Visibility"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/RoleOut"
+            },
+            "type": "array",
+            "title": "Roles"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/GroupRefOut"
+            },
+            "type": "array",
+            "title": "Groups"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "display_name",
+          "locale",
+          "status",
+          "home_site_id",
+          "presence_visibility",
+          "is_active",
+          "roles",
+          "groups"
+        ],
+        "title": "UserOut"
+      },
+      "UserPageOut": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "users": {
+            "items": {
+              "$ref": "#/components/schemas/UserOut"
+            },
+            "type": "array",
+            "title": "Users"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "users"
+        ],
+        "title": "UserPageOut",
+        "description": "A page of the directory.\n\n`total` is the count of everyone matching the filter, not the length of `users` \u2014\na console that cannot say \"showing 50 of 480\" makes an admin guess whether the\nperson they are looking for is simply further down."
+      },
+      "UserPatch": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "home_site_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Site Id"
+          },
+          "locale": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locale"
+          }
+        },
+        "type": "object",
+        "title": "UserPatch"
+      },
       "UserPresenceOut": {
         "properties": {
           "user_id": {
@@ -3875,6 +4924,30 @@
         ],
         "title": "ZoneOut"
       },
+      "app__api__v1__admin__GroupOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "kind"
+        ],
+        "title": "GroupOut"
+      },
       "app__api__v1__admin__PlanOut": {
         "properties": {
           "asset_id": {
@@ -3949,6 +5022,43 @@
           "address"
         ],
         "title": "SiteOut"
+      },
+      "app__api__v1__admin_people__GroupOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "member_count": {
+            "type": "integer",
+            "title": "Member Count"
+          },
+          "zones": {
+            "items": {
+              "$ref": "#/components/schemas/GroupZoneOut"
+            },
+            "type": "array",
+            "title": "Zones"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "member_count",
+          "zones"
+        ],
+        "title": "GroupOut"
       },
       "app__api__v1__bookings__PlanOut": {
         "properties": {

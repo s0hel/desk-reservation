@@ -22,6 +22,14 @@ ROOM_CAPACITY_FIT: Final = "policy.room_capacity_fit"  # severity: warn
 ABSENCE_CONFLICTS_WITH_BOOKING: Final = "presence.absence_conflicts_with_booking"
 ABSENCE_KIND_UNKNOWN: Final = "presence.absence_kind_unknown"
 VISIBILITY_UNKNOWN: Final = "presence.visibility_unknown"
+#: Admin-console refusals (FR-8.4). They travel in the same problem+json envelope as a
+#: booking refusal, for the same reason: the console renders its own sentence from the
+#: code and params, and an admin refusal needs to name what is in the way just as much
+#: as an employee's does.
+LAST_ORG_ADMIN: Final = "admin.last_org_admin"
+GROUP_IN_USE: Final = "admin.group_in_use"
+EMAIL_TAKEN: Final = "admin.email_taken"
+UNKNOWN_ROLE: Final = "admin.unknown_role"
 RESOURCE_UNAVAILABLE: Final = "resource.unavailable"
 RESOURCE_OUT_OF_SERVICE: Final = "resource.out_of_service"
 

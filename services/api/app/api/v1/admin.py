@@ -235,10 +235,9 @@ async def list_floors(
     return [await _floor_summary(session, f) for f in floors]
 
 
-@router.get("/groups", response_model=list[GroupOut])
-async def list_groups(session: Annotated[AsyncSession, Depends(db)]) -> list[Group]:
-    """Zone permissions are granted to groups (FR-6.4), so the editor needs the list."""
-    return list(await session.scalars(select(Group).order_by(Group.name)))
+# `GET /admin/groups` lives in admin_people.py — it is directory administration, and the
+# editor does not need it: a floor's own response already embeds the groups its zone
+# permissions can be granted to.
 
 
 # ------------------------------------------------------------------------- editor

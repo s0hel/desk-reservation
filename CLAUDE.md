@@ -89,6 +89,19 @@ every table has RLS forced. The one deliberate exception is `org_domains`
 (`domain → organization_id` only), which needs a global SELECT-only policy because
 email→tenant routing happens before a tenant is known.
 
+**A request handler must not `commit()` before it has finished reading.** `SET LOCAL
+app.org_id` is scoped to the transaction, so a commit inside a handler ends the tenant
+context — and every query after it runs with none, which under RLS returns nothing
+rather than everything. The `db` dependency commits once the handler has returned, so
+handlers should simply not commit at all (`api/v1/bookings.py` is the model). The two
+in `admin.py` that do are safe only because they answer from objects already in memory.
+This shipped as a bug in `admin_people.py`: every write route answers with the state it
+just produced, and the early commit made each one 404 on the row it had itself written
+— "group not found" for a group the same screen had just listed.
+`tests/test_admin_people.py::test_a_write_route_can_read_back_what_it_just_wrote`
+drives it over HTTP, which is the only layer that shows it: the service functions are
+correct, and a test that calls them directly never commits mid-request.
+
 **The API must never connect as a superuser or BYPASSRLS role.** Either ignores RLS silently
 while every policy stays listed. Two guards: `app/main.py::assert_rls_enforceable` refuses to
 boot in staging/production under such a role (warns in development), and
@@ -169,6 +182,22 @@ candidate's memberships against themselves and return true for everyone.
 so the app can drop the feature rather than offer it and fail. Absences are deliberately
 *not* gated: they are the user's own record and also feed assigned-desk release (FR-6.7).
 
+**Nothing may delete the last administrator, or a group a zone depends on** (FR-8.4).
+Both live in `app/services/people.py`, and both exist because the failure is silent and
+unrecoverable. An organization with no `org_admin` cannot appoint one — there is no
+break-glass path in this product — so the guard counts *distinct active* users holding
+the role, excluding the one being changed (counting rows would read one person's two
+scopes as two administrators and wave the last one through). And
+`zone_permissions.group_id` is `ON DELETE CASCADE`, so deleting a group that holds a
+zone's only `exclusive` rule succeeds and quietly turns a restricted neighbourhood into
+open seating: no error, no audit line, the desks simply go green one morning. The
+refusal names the zones so an admin knows where to go and clear it.
+
+Role assignment (`PUT /v1/admin/users/{id}/roles`) requires `org_admin` specifically,
+not merely an admin role: a site admin who can grant roles can grant themselves
+`org_admin`. Changing someone's roles bumps their `token_version`, because their
+current access token still carries the old list.
+
 **Errors are RFC 9457 `problem+json` with machine-readable violations, everywhere.**
 `app/core/errors.py::ProblemError` subclasses (`NotFound`, `Unauthorized`, `Forbidden`,
 `PolicyViolation`, `ResourceUnavailable`) carry a `detail` (developer-facing English) and a
@@ -186,8 +215,9 @@ contract.
 
 - `api/deps.py` — `Principal` (decoded JWT claims), the `db`/`anon_db` session dependencies
   described above, `current_user`, `require_role(*roles)`.
-- `api/v1/` — routers (`auth`, `me`, `spaces`, `bookings`, `presence`, `plans`, `admin`),
-  mounted under `/v1` in `api/v1/router.py`.
+- `api/v1/` — routers (`auth`, `me`, `spaces`, `bookings`, `presence`, `plans`, `admin`,
+  `admin_people`), mounted under `/v1` in `api/v1/router.py`. `admin` edits the
+  building, `admin_people` edits the directory; they share a prefix and role gate.
 - `core/` — `config.py` (pydantic-settings `Settings`, with `assert_safe()` run at startup to
   fail fast on a dev-login or weak JWT key outside development), `security.py` (JWT),
   `time.py` (see above), `errors.py`, `ids.py` (UUIDv7 PKs — see `PKMixin`), `logging.py`
@@ -199,7 +229,8 @@ contract.
   `db/base.py`.
 - `services/` — `oidc.py`, `tokens.py` (refresh token rotation with reuse detection: a
   replayed refresh token revokes the whole token family — see `RefreshToken.family_id`),
-  `presence.py` (see the visibility invariant above).
+  `presence.py` (see the visibility invariant above), `people.py` (users, groups, roles
+  and deactivation — see the last-administrator invariant above).
 - `seed.py` — the `make seed` fixture data described in the README/Makefile.
 
 Dev-only sign-in (`POST /v1/auth/dev-login`) exists so Phase 0 is usable before a customer

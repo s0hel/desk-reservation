@@ -149,3 +149,67 @@ export const DEFAULT_ROOM_ATTRIBUTES: Record<string, unknown> = {
 export function defaultAttributes(kind: ResourceKind): Record<string, unknown> {
   return { ...(kind === "room" ? DEFAULT_ROOM_ATTRIBUTES : DEFAULT_DESK_ATTRIBUTES) };
 }
+
+// ---------------------------------------------------------------- people (FR-8.4)
+
+export type RoleName = "employee" | "team_lead" | "site_admin" | "org_admin";
+export type ScopeType = "org" | "site";
+
+export type RoleAssignment = {
+  role: RoleName;
+  scope_type: ScopeType;
+  /** Null for an org-scoped role. The API drops it rather than storing an ignored one. */
+  scope_id: string | null;
+};
+
+export type GroupRef = { id: string; name: string };
+
+export type DirectoryUser = {
+  id: string;
+  email: string;
+  display_name: string;
+  locale: string;
+  status: string;
+  home_site_id: string | null;
+  presence_visibility: string;
+  is_active: boolean;
+  roles: RoleAssignment[];
+  groups: GroupRef[];
+};
+
+/** `total` counts everyone matching the filter, not the page — see the API model. */
+export type UserPage = { total: number; users: DirectoryUser[] };
+
+/** What deactivating someone would cost, asked before it is done. */
+export type Deactivation = {
+  bookings: number;
+  sample: string[];
+  groups: number;
+  is_last_admin: boolean;
+};
+
+export type GroupZone = { id: string; name: string; mode: ZonePermissionMode };
+
+export type AdminGroup = {
+  id: string;
+  name: string;
+  kind: string;
+  member_count: number;
+  /** Non-empty means deleting it would silently open those zones — so it is refused. */
+  zones: GroupZone[];
+};
+
+export type GroupMember = {
+  user_id: string;
+  display_name: string;
+  email: string;
+  role: string;
+  is_active: boolean;
+};
+
+export const ROLE_LABELS: Record<RoleName, string> = {
+  employee: "Employee",
+  team_lead: "Team lead",
+  site_admin: "Site admin",
+  org_admin: "Org admin",
+};

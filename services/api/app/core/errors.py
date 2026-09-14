@@ -62,6 +62,18 @@ class PolicyViolation(ProblemError):
     status, type_slug, title = 422, "policy-violation", "Booking not permitted"
 
 
+class AdminRefusal(PolicyViolation):
+    """An administrative action refused by a rule (FR-8.4).
+
+    The same 422 problem+json shape as a booking refusal, because clients should have
+    one error contract — but not the same title. "Booking not permitted" on a group
+    deletion sends whoever reads that log line looking for a booking that does not
+    exist, and the title is the part a human sees first.
+    """
+
+    type_slug, title = "admin-refusal", "Change not permitted"
+
+
 class ResourceUnavailable(ProblemError):
     """Raised when the exclusion constraint arbitrates against us (TDD §6.4, §10.2)."""
 

@@ -30,6 +30,17 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             Deskflow
           </a>
           <span className="pill">admin</span>
+          <nav className="row" style={{ gap: 14, marginLeft: 10 }}>
+            <a href="/" className="muted">
+              Sites
+            </a>
+            <a href="/people" className="muted">
+              People
+            </a>
+            <a href="/groups" className="muted">
+              Groups
+            </a>
+          </nav>
           <div className="spacer" />
           {identity ? (
             <>
