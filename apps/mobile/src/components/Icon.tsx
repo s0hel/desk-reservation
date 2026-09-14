@@ -23,7 +23,11 @@ export type IconName =
   | "check"
   | "clock"
   | "alert"
-  | "signOut";
+  | "signOut"
+  | "home"
+  | "leave"
+  | "travel"
+  | "eye";
 
 type Props = { name: IconName; size?: number; color: ColorValue; strokeWidth?: number };
 
@@ -84,6 +88,34 @@ export function Icon({ name, size = 22, color, strokeWidth = 1.9 }: Props) {
           <Circle cx={12} cy={12} r={8.8} {...stroke} />
           <Path d="M12 7.4v5.4" {...stroke} />
           <Circle cx={12} cy={16.6} r={1.05} fill={color} />
+        </>
+      ) : null}
+
+      {/* The three absence kinds. Distinct silhouettes, not three variations on a
+          calendar: they appear side by side in one chooser, where a shared outline is
+          exactly what makes the options hard to tell apart. */}
+      {name === "home" ? (
+        <>
+          <Path d="M3.8 10.9 12 4.2l8.2 6.7" {...stroke} />
+          <Path d="M6 10.2v9.6h12v-9.6" {...stroke} />
+          <Path d="M10 19.8v-4.6h4v4.6" {...stroke} />
+        </>
+      ) : null}
+
+      {name === "leave" ? (
+        <>
+          <Path d="M20.2 14.4a7.6 7.6 0 1 1-9.4-9.6 6.2 6.2 0 0 0 9.4 9.6Z" {...stroke} />
+        </>
+      ) : null}
+
+      {name === "travel" ? (
+        <Path d="M3 13.4l3-1 3.4 1.5 4.2-1.9-4-5.6 2.2-.6 5.7 4.8 3.6-1.6a1.7 1.7 0 1 1 1.1 3.2l-14.3 5z" {...stroke} />
+      ) : null}
+
+      {name === "eye" ? (
+        <>
+          <Path d="M2.6 12S5.9 6.2 12 6.2 21.4 12 21.4 12 18.1 17.8 12 17.8 2.6 12 2.6 12Z" {...stroke} />
+          <Circle cx={12} cy={12} r={2.9} {...stroke} />
         </>
       ) : null}
 

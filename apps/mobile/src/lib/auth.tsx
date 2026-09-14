@@ -12,6 +12,12 @@ type AuthState = {
   me: Me | null;
   signIn: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
+  /**
+   * Re-read `/v1/me` after changing something it reports. `me` is held here rather
+   * than in the query cache, so a screen that PATCHes it has no other way to make the
+   * rest of the app agree with what the user just chose.
+   */
+  refreshMe: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -47,6 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<AuthState>(() => ({
     ready, token, me,
     signIn: async (email: string) => { await persist(await api.devLogin(email)); },
+    refreshMe: async () => { if (token) setMe(await api.me(token)); },
     signOut: async () => {
       await SecureStore.deleteItemAsync(ACCESS);
       await SecureStore.deleteItemAsync(REFRESH);

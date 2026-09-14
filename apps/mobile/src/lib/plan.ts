@@ -85,6 +85,47 @@ export function viewportToPlan(point: PlanPoint, v: Viewport): PlanPoint {
   return { x: (px - ox) / pw, y: (py - oy) / ph };
 }
 
+/**
+ * The pan that puts a plan-space point in the middle of the viewport, clamped so the
+ * drawing never pulls its own edge inside the frame.
+ *
+ * Needed by "sit near" (FR-5.3): the screen says a desk is ringed on the plan, and a
+ * ring the user has to go hunting for is the same dead end as an alert that states a
+ * fact and offers nothing. Without the clamp, centring on a desk near an edge leaves a
+ * band of empty ground on screen, which reads as a rendering fault rather than a pan.
+ *
+ * Pure for the same reason as `viewportToPlan` above: transform maths that is wrong by
+ * a factor of the scale looks perfect at scale 1.
+ */
+export function centreOn(
+  point: PlanPoint,
+  v: {
+    width: number;
+    height: number;
+    planX: number;
+    planY: number;
+    planWidth: number;
+    planHeight: number;
+    scale: number;
+  },
+): { tx: number; ty: number } {
+  const axis = (p: number, viewport: number, origin: number, extent: number) => {
+    const centre = viewport / 2;
+    const s = v.scale;
+    // Where the drawing's own centre sits once scaled, before any pan.
+    const base = (origin + extent / 2 - centre) * s + centre;
+    const half = (extent * s) / 2;
+    // RN scales about the view's centre, so undoing that is what puts `p` in the middle.
+    const wanted = -(origin + p * extent - centre) * s;
+    if (extent * s < viewport) return centre - base;
+    return Math.min(Math.max(wanted, viewport - base - half), half - base);
+  };
+  return {
+    tx: axis(point.x, v.width, v.planX, v.planWidth),
+    ty: axis(point.y, v.height, v.planY, v.planHeight),
+  };
+}
+
 export type PlanIndex<T extends Placed> = Map<string, T[]>;
 
 /** Uniform spatial grid over plan space, built once per resource set. */

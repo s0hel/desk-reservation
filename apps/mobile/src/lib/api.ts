@@ -35,9 +35,17 @@ export type Resource = {
   position: { x?: number; y?: number; rotation?: number };
   attributes: Record<string, unknown>; bookable: boolean; site_timezone: string;
 };
+export type Visibility = "everyone" | "team_only" | "nobody";
+
 export type Me = {
   id: string; organization_id: string; email: string; display_name: string;
-  locale: string; home_site_id: string | null; presence_visibility: string; roles: string[];
+  locale: string; home_site_id: string | null; presence_visibility: Visibility; roles: string[];
+  /**
+   * Server-owned. `presence` is the org kill switch (PRD Q6): when it is false the app
+   * must drop the feature — no Team tab, no colleagues on the plan — rather than offer
+   * it and let every call 404.
+   */
+  features: Record<string, boolean>;
 };
 export type ResourceAvailability = {
   id: string; code: string; name: string | null; kind: "desk" | "room";
@@ -110,6 +118,48 @@ export type WeekAvailability = {
   today: string;
   days: DayAvailability[];
 };
+
+/** Where a colleague is sitting. `position` is normalized plan space (TDD §14.2). */
+export type Seat = {
+  floor_id: string; floor_name: string; resource_id: string; resource_code: string;
+  position: { x?: number; y?: number; rotation?: number };
+};
+
+export type Person = {
+  user_id: string; display_name: string; initials: string; avatar_url: string | null;
+  status: string; seat: Seat | null; is_me: boolean;
+};
+
+/**
+ * Who is in, on one day.
+ *
+ * No total, deliberately, and the client must not invent one from elsewhere: a count
+ * larger than this list would identify the people who opted out of being named
+ * (TDD §11, PRD Q6). How full the office is comes from availability, which names
+ * nobody.
+ */
+export type Presence = { site_id: string; local_date: string; people: Person[] };
+
+export type DayPresence = { local_date: string; status: string; seat: Seat | null };
+
+export type UserPresence = {
+  user_id: string; display_name: string; initials: string; avatar_url: string | null;
+  days: DayPresence[];
+};
+
+export type Colleague = {
+  user_id: string; display_name: string; initials: string;
+  avatar_url: string | null; is_me: boolean;
+};
+
+export type TeamMember = Colleague & { days: DayPresence[] };
+
+export type Team = {
+  group_id: string | null; group_name: string | null;
+  dates: string[]; members: TeamMember[];
+};
+
+export type Absence = { local_date: string; kind: "remote" | "leave" | "travel" };
 
 export type TokenPair = {
   access_token: string; refresh_token: string; expires_in: number; roles: string[];
@@ -195,6 +245,54 @@ export const api = {
 
   cancelBooking: (t: string, id: string) =>
     request<Booking>(`/v1/bookings/${id}`, { method: "DELETE" }, t),
+
+  updateMe: (t: string, body: { presence_visibility?: Visibility; locale?: string }) =>
+    request<Me>("/v1/me", { method: "PATCH", body: JSON.stringify(body) }, t),
+
+  /** Who is in at a site on a day (FR-5.1). 404 when the org has presence switched off. */
+  presence: (t: string, siteId: string, date?: string) => {
+    const q = new URLSearchParams({ site: siteId });
+    if (date) q.set("date", date);
+    return request<Presence>(`/v1/presence?${q}`, {}, t);
+  },
+
+  /**
+   * One colleague's upcoming days (FR-5.2). A colleague who has hidden themselves is a
+   * 404 — refusing by name would confirm the very fact they hid — so the screen has to
+   * treat "not found" as "nothing to show", not as an error worth reporting.
+   */
+  userPresence: (t: string, userId: string, siteId?: string, from?: string, days = 14) => {
+    const q = new URLSearchParams({ days: String(days) });
+    if (siteId) q.set("site", siteId);
+    if (from) q.set("from", from);
+    return request<UserPresence>(`/v1/users/${userId}/presence?${q}`, {}, t);
+  },
+
+  colleagues: (t: string, q: string, limit = 20) =>
+    request<Colleague[]>(
+      `/v1/colleagues?${new URLSearchParams({ q, limit: String(limit) })}`, {}, t,
+    ),
+
+  /** A week of the team's planned presence (FR-5.4). */
+  team: (t: string, opts: { groupId?: string; siteId?: string; from?: string; days?: number } = {}) => {
+    const q = new URLSearchParams({ days: String(opts.days ?? 7) });
+    if (opts.groupId) q.set("group", opts.groupId);
+    if (opts.siteId) q.set("site", opts.siteId);
+    if (opts.from) q.set("from", opts.from);
+    return request<Team>(`/v1/team?${q}`, {}, t);
+  },
+
+  absences: (t: string, from: string, to: string) =>
+    request<Absence[]>(`/v1/absences?${new URLSearchParams({ from, to })}`, {}, t),
+
+  /** Declare a day away (FR-5.5). Refused while a desk is still held for it. */
+  declareAbsence: (t: string, localDate: string, kind: Absence["kind"]) =>
+    request<Absence>(
+      `/v1/absences/${localDate}`, { method: "PUT", body: JSON.stringify({ kind }) }, t,
+    ),
+
+  clearAbsence: (t: string, localDate: string) =>
+    request<void>(`/v1/absences/${localDate}`, { method: "DELETE" }, t),
 };
 
 /** Stable-per-intent key for booking retries. */

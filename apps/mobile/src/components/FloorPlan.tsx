@@ -39,11 +39,21 @@ import Svg, {
 
 import type { Plan, ResourceAvailability } from "@/lib/api";
 import {
-  NODE_RADIUS, buildIndex, findNearest, shortLabel, viewportToPlan,
+  NODE_RADIUS, buildIndex, centreOn, findNearest, shortLabel, viewportToPlan,
 } from "@/lib/plan";
 import { useTheme, useThemedStyles, type Palette, type Theme } from "@/lib/theme";
 
 export type PlanZone = { id: string; name: string; polygon: number[][]; color?: string | null };
+
+/** Who is sitting at a desk today, for the desks where we are allowed to say (FR-5.1). */
+export type Occupant = { id: string; initials: string };
+
+/**
+ * Above this many monograms the plan stops being a map of people and becomes a wall of
+ * two-letter boxes, so past it the desks go back to plain dots. The names are still on
+ * the Team tab, which is the screen built to hold a long list.
+ */
+const FACE_LIMIT = 80;
 
 type Props = {
   resources: ResourceAvailability[];
@@ -53,6 +63,15 @@ type Props = {
   aspectRatio?: number;
   /** Viewport height. The plan is letterboxed inside it, never stretched to fit. */
   height: number;
+  /**
+   * Desk id -> the colleague sitting there. Absent for a tenant with presence switched
+   * off, and — far more often — simply missing for people who chose not to be seen:
+   * their desk renders as an anonymous taken dot, which is exactly what a desk with
+   * nobody's name on it should look like.
+   */
+  occupants?: Map<string, Occupant>;
+  /** A desk to point at, for "sit near Marcus" (FR-5.3). */
+  focusId?: string | null;
   onSelect: (resource: ResourceAvailability) => void;
 };
 
@@ -100,6 +119,8 @@ export function FloorPlan({
   plan,
   aspectRatio,
   height,
+  occupants,
+  focusId,
   onSelect,
 }: Props) {
   const theme = useTheme();
@@ -157,14 +178,38 @@ export function FloorPlan({
     [index, byId, onSelect],
   );
 
+  const focusPoint = useMemo(() => {
+    if (!focusId) return null;
+    const found = resources.find((r) => r.id === focusId);
+    const x = found?.position?.x;
+    const y = found?.position?.y;
+    return typeof x === "number" && typeof y === "number" ? { x, y } : null;
+  }, [focusId, resources]);
+
   // Applied once the viewport has been measured. Re-running it on every layout would
-  // yank the plan back to the start mid-pinch.
+  // yank the plan back to the start mid-pinch — and re-running it when the day changes
+  // would yank it away from wherever the user had panned to.
   useEffect(() => {
     if (started.current || planHeight <= 0) return;
     started.current = true;
     scale.value = fitScale;
     savedScale.value = fitScale;
-  }, [fitScale, planHeight, scale, savedScale]);
+    if (!focusPoint) return;
+    // Open on the desk we were sent here to point at. Saying "ringed on the plan" and
+    // leaving the ring somewhere off-screen is the same dead end as an alert: the
+    // screen states a fact the user then has to go and find.
+    //
+    const pan = centreOn(focusPoint, {
+      width, height, planX, planY, planWidth, planHeight, scale: fitScale,
+    });
+    tx.value = pan.tx;
+    ty.value = pan.ty;
+    savedTx.value = pan.tx;
+    savedTy.value = pan.ty;
+  }, [
+    fitScale, planHeight, planWidth, planX, planY, width, height, focusPoint,
+    scale, savedScale, tx, ty, savedTx, savedTy,
+  ]);
 
   const pan = Gesture.Pan()
     // A real finger drifts a few pixels while tapping. Without a minimum distance the
@@ -240,6 +285,9 @@ export function FloorPlan({
   // Labels are culled by zoom, but the threshold is read once per render rather than
   // per frame: re-rendering the scene during a pinch is exactly what we are avoiding.
   const showLabels = resources.length <= 80;
+  // Same reasoning, counted over people rather than desks: a floor of 300 desks with
+  // 12 colleagues on it should still show the 12.
+  const showFaces = !!occupants && occupants.size > 0 && occupants.size <= FACE_LIMIT;
 
   return (
     // The detector wraps the OUTER, untransformed viewport on purpose. Attached to the
@@ -291,6 +339,22 @@ export function FloorPlan({
                 const cx = (r.position?.x ?? 0) * planWidth;
                 const cy = (r.position?.y ?? 0) * planHeight;
                 const r0 = NODE_RADIUS * planWidth;
+                // A desk with a person on it is drawn as that person: bigger, in their
+                // own tint, carrying their monogram. That is a third distinguishable
+                // *shape*, not a third hue — free and taken keep the filled/faded pair
+                // that has to survive colour blindness, and this one is legible without
+                // any colour at all.
+                const occupant = showFaces && r.kind === "desk" ? occupants!.get(r.id) ?? null : null;
+                // Their own tint would be recognisable and wrong: on the plan, colour
+                // is the availability vocabulary, and several avatar tints sit close
+                // enough to `free` and `zone` to be misread as one. Identity here is
+                // carried by the monogram, which no palette can collide with.
+                const face = occupant
+                  ? state === "yours"
+                    ? theme.color.state.yours
+                    : theme.color.state.person
+                  : null;
+                const labelY = cy + r0 * (occupant ? 3.2 : 2.8);
                 return (
                   <G key={r.id}>
                     {/* Your own desk gets a halo, so it is findable without hunting. */}
@@ -298,14 +362,41 @@ export function FloorPlan({
                       <Circle
                         cx={cx}
                         cy={cy}
-                        r={r0 * 1.9}
+                        r={r0 * (occupant ? 2.4 : 1.9)}
                         fill="none"
                         stroke={skin.fill}
                         strokeOpacity={0.4}
                         strokeWidth={r0 * 0.5}
                       />
                     ) : null}
-                    {r.kind === "room" ? (
+                    {/* The colleague you came here to sit near (FR-5.3), in clay: this
+                        is a pointer to one desk, not a state the desk is in, so it must
+                        not borrow a colour from the state set. */}
+                    {r.id === focusId ? (
+                      <Circle
+                        cx={cx}
+                        cy={cy}
+                        r={r0 * 2.7}
+                        fill="none"
+                        stroke={theme.color.clay}
+                        strokeWidth={r0 * 0.45}
+                      />
+                    ) : null}
+                    {occupant ? (
+                      <>
+                        <Circle cx={cx} cy={cy} r={r0 * 1.65} fill={face!} />
+                        <SvgText
+                          x={cx}
+                          y={cy + r0 * 0.42}
+                          fontSize={r0 * 1.2}
+                          fontWeight="700"
+                          fill="#FFFFFF"
+                          textAnchor="middle"
+                        >
+                          {occupant.initials}
+                        </SvgText>
+                      </>
+                    ) : r.kind === "room" ? (
                       <Rect
                         x={cx - r0 * 1.6}
                         y={cy - r0}
@@ -331,7 +422,7 @@ export function FloorPlan({
                     {showLabels ? (
                       <SvgText
                         x={cx}
-                        y={cy + r0 * 2.8}
+                        y={labelY}
                         fontSize={r0 * 1.15}
                         fill={theme.color.muted}
                         textAnchor="middle"

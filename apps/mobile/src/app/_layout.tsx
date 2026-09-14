@@ -65,6 +65,7 @@ function RootStack() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="pick-floor" />
         <Stack.Screen name="floor/[id]" />
+        <Stack.Screen name="colleague/[id]" />
       </Stack.Protected>
     </Stack>
   );

@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { Button } from "@/components/Button";
 import { DeskSheet } from "@/components/DeskSheet";
-import { FloorPlan } from "@/components/FloorPlan";
+import { FloorPlan, type Occupant } from "@/components/FloorPlan";
 import { RefusalSheet } from "@/components/RefusalSheet";
 import { WeekStrip } from "@/components/WeekStrip";
 import {
@@ -14,6 +15,7 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { describeAll, refusal, type Refusal } from "@/lib/messages";
+import { nearestTo } from "@/lib/presence";
 import { at, radius, spacing, type, useTheme, useThemedStyles, type Theme } from "@/lib/theme";
 
 /**
@@ -27,13 +29,16 @@ import { at, radius, spacing, type, useTheme, useThemedStyles, type Theme } from
  * screen-reader user gets, and what renders while a plan image loads (FR-2.4).
  */
 export default function FloorScreen() {
-  const { id, name, date: dateParam } = useLocalSearchParams<{
+  const { id, name, date: dateParam, near, nearName } = useLocalSearchParams<{
     id: string;
     name?: string;
     /** Set when arriving from a booking, so the plan opens on that booking's day. */
     date?: string;
+    /** A colleague's desk to sit near, set when arriving from their screen (FR-5.3). */
+    near?: string;
+    nearName?: string;
   }>();
-  const { token } = useAuth();
+  const { token, me } = useAuth();
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
@@ -78,6 +83,54 @@ export default function FloorScreen() {
   });
 
   const data = availability.data;
+
+  // Who is in, for this site and day. Only the people the server is willing to name:
+  // a colleague set to "nobody" is simply absent from the response, so their desk
+  // renders as an anonymous taken dot (TDD §11). Skipped entirely when the org has
+  // presence switched off, where every one of these calls would 404.
+  const presenceOn = me?.features?.presence !== false;
+  const presence = useQuery({
+    queryKey: ["presence", site?.id, date],
+    queryFn: () => api.presence(token!, site!.id, date!),
+    enabled: !!token && !!site && !!date && presenceOn,
+  });
+
+  const occupants = useMemo(() => {
+    const map = new Map<string, Occupant>();
+    for (const person of presence.data?.people ?? []) {
+      // Presence covers the whole site; this screen is one floor of it.
+      if (person.seat && person.seat.floor_id === id) {
+        map.set(person.seat.resource_id, { id: person.user_id, initials: person.initials });
+      }
+    }
+    return map;
+  }, [presence.data, id]);
+
+  const occupantNames = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; initials: string }>();
+    for (const person of presence.data?.people ?? []) {
+      if (person.seat) {
+        map.set(person.seat.resource_id, {
+          id: person.user_id,
+          name: person.display_name,
+          initials: person.initials,
+        });
+      }
+    }
+    return map;
+  }, [presence.data]);
+
+  // "Sit near" resolves against the day being shown, not the day we arrived with: change
+  // the date and their desk is no longer theirs, which the bar has to be able to say.
+  const nearSeat = near ? (data?.resources.find((r) => r.id === near) ?? null) : null;
+  const nearestFree = () => {
+    const point = { x: nearSeat?.position?.x ?? 0, y: nearSeat?.position?.y ?? 0 };
+    const free = (data?.resources ?? []).filter(
+      (r) => r.kind === "desk" && r.available && r.bookable && !r.restriction && r.id !== near,
+    );
+    const pick = nearestTo(point, free);
+    if (pick) setSelected(pick);
+  };
 
   const book = useMutation({
     mutationFn: (resource: ResourceAvailability) =>
@@ -129,6 +182,8 @@ export default function FloorScreen() {
             {data && !planError ? (
               <FloorPlanStage
                 data={data}
+                occupants={occupants}
+                focusId={near ?? null}
                 onSelect={setSelected}
                 bottomInset={insets.bottom}
               />
@@ -292,12 +347,36 @@ export default function FloorScreen() {
             />
           </>
         )}
+
+        {/* FR-5.3. The colleague's desk is already ringed on the plan; this is the part
+            that does the work, because "near" is a sort over positions the screen
+            already has rather than a question for the server. */}
+        {near ? (
+          <View style={[styles.nearBar, { paddingBottom: insets.bottom + spacing(1) }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.nearTitle} numberOfLines={1}>
+                {nearSeat
+                  ? `Sitting near ${nearName ?? "a colleague"}`
+                  : `${nearName ?? "They"} aren't at a desk here`}
+              </Text>
+              <Text style={styles.nearSub} numberOfLines={1}>
+                {nearSeat
+                  ? `${nearSeat.code} · ringed on the plan`
+                  : "Their desk isn't on this floor on this day."}
+              </Text>
+            </View>
+            {nearSeat ? (
+              <Button label="Nearest free desk" onPress={nearestFree} style={{ flexShrink: 0 }} />
+            ) : null}
+          </View>
+        ) : null}
       </View>
 
       <DeskSheet
         resource={selected}
         localDate={date ?? ""}
         zoneName={selected ? zoneName(selected.zone_id) : null}
+        occupant={selected ? occupantNames.get(selected.id) ?? null : null}
         booking={book.isPending}
         onBook={(r) => book.mutate(r)}
         onClose={() => setSelected(null)}
@@ -319,10 +398,14 @@ export default function FloorScreen() {
  */
 function FloorPlanStage({
   data,
+  occupants,
+  focusId,
   onSelect,
   bottomInset,
 }: {
   data: Availability;
+  occupants: Map<string, Occupant>;
+  focusId: string | null;
   onSelect: (r: ResourceAvailability) => void;
   bottomInset: number;
 }) {
@@ -341,6 +424,8 @@ function FloorPlanStage({
           zones={data.zones}
           plan={data.plan}
           height={size.height - bottomInset}
+          occupants={occupants}
+          focusId={focusId}
           onSelect={onSelect}
         />
       ) : null}
@@ -473,6 +558,19 @@ const makeStyles = (t: Theme) => ({
   chipStrong: { ...at(type.sub, 13), color: t.color.ink, fontWeight: "700" as const },
   chipFree: { ...at(type.sub, 13), color: t.color.state.free, fontWeight: "700" as const },
   chipMuted: { ...at(type.sub, 12), color: t.color.muted },
+
+  nearBar: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: spacing(1.5),
+    paddingHorizontal: spacing(2),
+    paddingTop: spacing(1.5),
+    backgroundColor: t.color.surface,
+    borderTopWidth: 1,
+    borderTopColor: t.color.line,
+  },
+  nearTitle: { ...type.body, color: t.color.ink, fontWeight: "600" as const },
+  nearSub: { ...at(type.sub, 13), color: t.color.muted, marginTop: 1 },
 
   listBar: {
     flexDirection: "row" as const,

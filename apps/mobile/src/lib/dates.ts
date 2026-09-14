@@ -27,6 +27,19 @@ export function timeInZone(iso: string, timeZone: string | null): string {
   }
 }
 
+/**
+ * Calendar arithmetic on a YYYY-MM-DD, with no clock involved.
+ *
+ * Constructing the Date from parts gives local midnight, so adding days can never
+ * cross a DST boundary into the previous evening the way `+ n * 86400000` on a UTC
+ * instant does. The device's zone is irrelevant here: the string goes in and a string
+ * comes out, and the day it names is still the site's (TDD §5).
+ */
+export function addDays(localDate: string, n: number): string {
+  const [y, m, d] = localDate.split("-").map(Number);
+  return toLocalDate(new Date(y, m - 1, d + n));
+}
+
 export function formatDate(date: string): string {
   const [y, m, d] = date.split("-").map(Number);
   return new Date(y, m - 1, d).toLocaleDateString(undefined, {

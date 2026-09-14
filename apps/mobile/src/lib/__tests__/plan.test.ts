@@ -10,7 +10,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { NODE_RADIUS, buildIndex, findNearest, shortLabel, viewportToPlan } from "../plan";
+import { NODE_RADIUS, buildIndex, findNearest, shortLabel, viewportToPlan, centreOn,} from "../plan";
 
 const VIEW = { tx: 0, ty: 0, scale: 1, width: 400, height: 300 };
 
@@ -181,5 +181,69 @@ describe("viewportToPlan with a letterboxed plan", () => {
     expect(viewportToPlan({ x: 133, y: 90 }, full)).toEqual(
       viewportToPlan({ x: 133, y: 90 }, explicit),
     );
+  });
+});
+
+describe("centreOn", () => {
+  // A full-height viewport over a landscape plan: the drawing is wider than the frame
+  // and shorter, which is the shape "sit near" actually opens into.
+  const wide = {
+    width: 402,
+    height: 700,
+    planX: -299,
+    planY: 116,
+    planWidth: 1000,
+    planHeight: 467,
+    scale: 1.5,
+  };
+
+  const drawn = (p: { x: number; y: number }, pan: { tx: number; ty: number }) => {
+    const x = (wide.planX + p.x * wide.planWidth - wide.width / 2) * wide.scale + wide.width / 2;
+    const y = (wide.planY + p.y * wide.planHeight - wide.height / 2) * wide.scale + wide.height / 2;
+    return { x: x + pan.tx, y: y + pan.ty };
+  };
+
+  it("puts a mid-plan point in the middle of the viewport", () => {
+    const point = { x: 0.5, y: 0.5 };
+    const at = drawn(point, centreOn(point, wide));
+    expect(at.x).toBeCloseTo(wide.width / 2, 5);
+    expect(at.y).toBeCloseTo(wide.height / 2, 5);
+  });
+
+  // Without the clamp this is the band of empty ground that reads as a rendering fault.
+  it("never pulls the plan's own edge inside the frame", () => {
+    for (const point of [
+      { x: 0, y: 0 },
+      { x: 1, y: 1 },
+      { x: 0.02, y: 0.98 },
+    ]) {
+      const pan = centreOn(point, wide);
+      const left = drawn({ x: 0, y: 0 }, pan);
+      const right = drawn({ x: 1, y: 1 }, pan);
+      expect(left.x).toBeLessThanOrEqual(0.0001);
+      expect(right.x).toBeGreaterThanOrEqual(wide.width - 0.0001);
+    }
+  });
+
+  // Zoomed out far enough that the plan no longer fills the frame vertically, there is
+  // no pan that covers it — centring the drawing is the only honest answer, and asking
+  // for a point near the top must not drag it off-centre.
+  it("centres an axis the plan cannot fill", () => {
+    const short = { ...wide, scale: 1.2 };
+    expect(short.planHeight * short.scale).toBeLessThan(short.height);
+    const pan = centreOn({ x: 0.5, y: 0.1 }, short);
+    const at = (y: number) =>
+      (short.planY + y * short.planHeight - short.height / 2) * short.scale +
+      short.height / 2 +
+      pan.ty;
+    expect((at(0) + at(1)) / 2).toBeCloseTo(short.height / 2, 5);
+  });
+
+  it("is a no-op at scale 1 for a plan that exactly fits", () => {
+    const fits = {
+      width: 402, height: 268, planX: 0, planY: 0,
+      planWidth: 402, planHeight: 268, scale: 1,
+    };
+    expect(centreOn({ x: 0.5, y: 0.5 }, fits)).toEqual({ tx: 0, ty: 0 });
   });
 });

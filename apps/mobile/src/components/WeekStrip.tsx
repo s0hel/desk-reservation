@@ -22,6 +22,12 @@ type Props = {
   days: DayAvailability[];
   value: string;
   today?: string;
+  /**
+   * Days the user has declared away (FR-5.5), keyed by local date. A hollow ring, where
+   * a booking is a filled dot: both are "you have said something about this day", and
+   * the difference between them must not rest on colour.
+   */
+  absences?: Record<string, string>;
   onChange: (localDate: string) => void;
 };
 
@@ -34,7 +40,7 @@ function parts(localDate: string) {
   };
 }
 
-export function WeekStrip({ days, value, today, onChange }: Props) {
+export function WeekStrip({ days, value, today, absences, onChange }: Props) {
   const styles = useThemedStyles(makeStyles);
 
   return (
@@ -53,6 +59,7 @@ export function WeekStrip({ days, value, today, onChange }: Props) {
         const full = !shut && d.available === 0;
         const free = d.total > 0 ? d.available / d.total : 0;
 
+        const away = absences?.[d.local_date] ?? null;
         const spoken = d.blackout
           ? `closed${d.blackout_reason ? `, ${d.blackout_reason}` : ""}`
           : !d.is_open
@@ -69,7 +76,9 @@ export function WeekStrip({ days, value, today, onChange }: Props) {
             style={[styles.cell, selected && styles.cellSelected, shut && styles.cellClosed]}
             accessibilityRole="button"
             accessibilityState={{ selected, disabled: shut }}
-            accessibilityLabel={`${d.local_date === today ? "Today, " : ""}${weekday} ${day}, ${spoken}`}
+            accessibilityLabel={`${d.local_date === today ? "Today, " : ""}${weekday} ${day}, ${spoken}${
+              d.my_booking ? ", you have a desk" : away ? ", you marked yourself away" : ""
+            }`}
           >
             <Text style={[styles.weekday, selected && styles.onSelected]}>
               {d.local_date === today ? "TODAY" : weekday.toUpperCase()}
@@ -99,6 +108,8 @@ export function WeekStrip({ days, value, today, onChange }: Props) {
 
             {d.my_booking ? (
               <View style={[styles.dot, selected && styles.dotSelected]} />
+            ) : away ? (
+              <View style={[styles.ring, selected && styles.ringSelected]} />
             ) : (
               <View style={styles.dotSpacer} />
             )}
@@ -146,5 +157,13 @@ const makeStyles = (t: Theme) => ({
   fullFill: { color: t.color.state.closed },
   dot: { width: 5, height: 5, borderRadius: radius.pill, backgroundColor: t.color.clay },
   dotSelected: { backgroundColor: t.color.onAccent },
+  ring: {
+    width: 6,
+    height: 6,
+    borderRadius: radius.pill,
+    borderWidth: 1.5,
+    borderColor: t.color.muted,
+  },
+  ringSelected: { borderColor: t.color.onAccent },
   dotSpacer: { width: 5, height: 5 },
 });

@@ -49,6 +49,14 @@ export type Palette = {
   state: {
     free: string;
     taken: string;
+    /**
+     * A desk taken by a colleague we can name. The same hue family as `taken` and
+     * deeper, because that is what it is — an occupied desk, with a face on it. It is
+     * deliberately NOT the person's avatar tint: on the plan, colour means
+     * availability, and a green monogram beside green free desks says the wrong thing
+     * however recognisable it is.
+     */
+    person: string;
     yours: string;
     closed: string;
     zone: string;
@@ -73,6 +81,7 @@ const light: Palette = {
   state: {
     free: "#1E8F63",
     taken: "#A9ADB4",
+    person: "#4A5568",
     yours: "#4340C4",
     closed: "#B8433A",
     zone: "#7C6AE8",
@@ -97,6 +106,7 @@ const dark: Palette = {
   state: {
     free: "#45C08D",
     taken: "#6B7079",
+    person: "#79879B",
     yours: "#8C88F5",
     closed: "#F0776A",
     zone: "#9B8CF0",
@@ -104,6 +114,24 @@ const dark: Palette = {
 };
 
 export const palettes: Record<Scheme, Palette> = { light, dark };
+
+/**
+ * Avatar fills, one set for both schemes.
+ *
+ * An avatar is its own ground, so the only contrast that matters is the monogram
+ * against the fill — which is theme-independent. Every value here clears 4.5:1 against
+ * white, and a person keeps the same one across every *list* (see `tintIndex` in
+ * lib/presence), because a monogram that changes colour between screens stops being
+ * recognisable.
+ *
+ * The floor plan is the one place that does not use them, and must not: there, colour
+ * is the availability vocabulary, and several of these sit close enough to `state.free`
+ * and `state.zone` to be read as one. Occupied desks use `state.person` instead — see
+ * components/FloorPlan.tsx.
+ */
+export const avatarTints: readonly string[] = [
+  "#4340C4", "#1E7A5E", "#A0492B", "#2C5FA8", "#7A3E93", "#7C5A12",
+];
 
 export const spacing = (n: number) => n * 8;
 

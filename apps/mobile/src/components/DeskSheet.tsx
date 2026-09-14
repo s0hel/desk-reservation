@@ -8,17 +8,25 @@
 
 import { Text, View } from "react-native";
 
+import { Avatar } from "@/components/Avatar";
 import { Button } from "@/components/Button";
 import { Sheet } from "@/components/Sheet";
 import type { ResourceAvailability } from "@/lib/api";
 import { formatDate } from "@/lib/dates";
 import { describe as describeViolation } from "@/lib/messages";
-import { at, radius, spacing, type, useThemedStyles, type Theme } from "@/lib/theme";
+import { at, radius, spacing, type, useTheme, useThemedStyles, type Theme } from "@/lib/theme";
 
 type Props = {
   resource: ResourceAvailability | null;
   localDate: string;
   zoneName: string | null;
+  /**
+   * Who has this desk, when presence is on and they are willing to be named (FR-5.1).
+   * Null covers three different situations that must all look identical from here —
+   * presence switched off, the desk free, or the person hidden — because a sheet that
+   * distinguished "nobody" from "someone who opted out" would leak the opt-out.
+   */
+  occupant?: { id: string; name: string; initials: string } | null;
   booking: boolean;
   onBook: (resource: ResourceAvailability) => void;
   onClose: () => void;
@@ -41,11 +49,13 @@ export function DeskSheet({
   resource,
   localDate,
   zoneName,
+  occupant,
   booking,
   onBook,
   onClose,
 }: Props) {
   const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   // Nothing selected: render nothing rather than an invisible modal.
   if (!resource) return null;
 
@@ -100,6 +110,24 @@ export function DeskSheet({
         )}
       </View>
 
+      {/* A taken desk with a name on it. "Marcus Weber has this" is the answer to the
+          question somebody taps a taken desk to ask; "someone else has this" is not. */}
+      {state === "taken" && occupant ? (
+        <View style={styles.occupant}>
+          {/* The plan is right behind this sheet, where the same desk is a slate
+              bubble; the same person in two colours on one screen reads as two
+              people. The name is written out here, so nothing is lost. */}
+          <Avatar
+            id={occupant.id}
+            name={occupant.name}
+            initials={occupant.initials}
+            size={32}
+            tint={theme.color.state.person}
+          />
+          <Text style={styles.occupantName}>{occupant.name} is here all day</Text>
+        </View>
+      ) : null}
+
       {state === "free" ? (
         <Button
           label={`Book for ${shortDay(localDate)}`}
@@ -113,7 +141,9 @@ export function DeskSheet({
             : state === "restricted" && resource.restriction
               ? describeViolation({ ...resource.restriction, severity: "block" })
               : state === "taken"
-                ? "Someone else has this for the whole day."
+                ? occupant
+                  ? "Pick another desk, or a different day."
+                  : "Someone else has this for the whole day."
                 : resource.out_of_service_reason
                   ? `Out of service: ${resource.out_of_service_reason}`
                   : "This desk is out of service."}
@@ -156,4 +186,6 @@ const makeStyles = (t: Theme) => ({
   },
   chipText: { ...at(type.sub, 12), color: t.color.inkSoft },
   why: { ...type.body, color: t.color.muted },
+  occupant: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing(1.25) },
+  occupantName: { ...type.body, color: t.color.ink, fontWeight: "600" as const, flex: 1 },
 });

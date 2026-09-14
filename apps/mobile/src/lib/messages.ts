@@ -33,6 +33,10 @@ const MESSAGES: Record<string, (p: Params) => string> = {
     `That area opens to everyone at ${p.opens_at}.`,
   "policy.blackout": (p) =>
     p.reason ? `The office is closed on ${day(p.date)} — ${p.reason}.` : `The office is closed on ${day(p.date)}.`,
+  "presence.absence_conflicts_with_booking": (p) =>
+    `You still have ${p.resource_code ?? "a desk"} booked on ${day(p.date)}.`,
+  "presence.absence_kind_unknown": () => "That isn't a kind of day away we know about.",
+  "presence.visibility_unknown": () => "That isn't a visibility setting we know about.",
   "resource.unavailable": (p) =>
     `${p.resource_code ?? "That desk"} was taken while you were booking.`,
   "resource.out_of_service": (p) =>
@@ -119,6 +123,13 @@ const SHAPES: Record<string, Shape> = {
     headline: () => "That area isn't open yet",
     detail: (p) => `It's held for another team until ${p.opens_at}.`,
     fix: () => "Pick a desk elsewhere, or come back later.",
+  },
+  "presence.absence_conflicts_with_booking": {
+    headline: (p) => `You still have a desk on ${day(p.date)}`,
+    // The server refuses rather than cancelling for you: marking a day away and
+    // silently losing a desk is a side effect nobody asked for (FR-5.5).
+    detail: (p) => (p.resource_code ? `${p.resource_code} is still booked.` : ""),
+    fix: () => "Cancel that booking first, then mark the day away.",
   },
   "resource.unavailable": {
     headline: () => "Just taken",

@@ -135,6 +135,16 @@ existing bookings *with notice*", and the notice is the half a status update sil
 skips. `POST /v1/admin/blackouts/preview` reports what a closure would break before it
 breaks it, the same shape as the floor-plan publish preflight and for the same reason.
 
+The mobile app consumes all of this in `app/(tabs)/team.tsx` (who is in, the team's
+week, colleague search), `app/colleague/[id].tsx` (a fortnight, and the way in to
+"sit near"), and the floor screen, which draws visible colleagues on the plan. Two
+client-side consequences of the server invariants below are easy to undo by accident:
+the Team tab's "N people in" is `presence.people.length` and must never be sourced from
+anywhere else, and "nobody else has booked a desk yet" is what an empty list has to say
+even when people have — saying "2 more you can't see" would hand back exactly what the
+filter removed. `me.features.presence` gates the tab itself (`href: null`), not just
+its contents, so a tenant with the kill switch off never sees a feature that 404s.
+
 **Presence visibility is a query condition, never a serializer step.** Every query that
 can name a colleague carries `app/services/presence.py::visible_to(viewer)`. A user with
 `presence_visibility='nobody'` is *absent from the result set* — not returned with a
@@ -224,8 +234,11 @@ don't build against dev-login as if it were permanent.
 - `components/Icon.tsx` — the icon set, hand-drawn on `react-native-svg` (already a
   dependency) rather than an icon font. A shared stroke weight is what makes a set look
   like a set, and that is the first thing lost to a third-party pack.
-- `app/` — expo-router file-based routes: `sign-in.tsx`, `(tabs)/` (index, spaces, me),
-  `floor/[id].tsx`.
+- `app/` — expo-router file-based routes: `sign-in.tsx`, `(tabs)/` (index, spaces,
+  team, me), `floor/[id].tsx`, `colleague/[id].tsx`, `pick-floor.tsx`.
+- `components/Avatar.tsx` — a person as a monogram. The tint is hashed from the **user
+  id**, not the name, so it survives a rename; see the plan-colour invariant above for
+  the one surface that overrides it.
 
 **No screen may derive "today" from the device.** `GET /v1/sites/{id}/availability`
 returns the site's own `today` along with the week, and that is the only correct source
@@ -233,6 +246,17 @@ returns the site's own `today` along with the week, and that is the only correct
 office was shut. The floor screen takes its day from a route param when it arrives from
 a booking, and from the site's `today` otherwise; `toLocalDate(new Date())` is gone from
 the screens for this reason.
+
+**On the floor plan, colour means availability — and nothing else.** Presence puts
+colleagues on the plan as monograms (FR-5.1, FR-5.3), and the obvious way to draw them
+is in the same per-person tint the Team tab uses. That shipped for about ten minutes:
+`avatarTints` contains a green a shade off `state.free` and a violet a shade off
+`state.zone`, so a colleague rendered as a free desk. Occupied desks therefore use
+`state.person` — deliberately in the `taken` hue family, because that is what such a
+desk is — and identity on the plan is carried by the monogram, which no palette can
+collide with. `DeskSheet` passes the same tint for the same reason: it sits directly
+over the plan, and one person in two colours on one screen reads as two people. The
+personal tints are for lists, where no state vocabulary competes.
 
 **Overriding a type role's `fontSize` requires `at()`.** `type.code` and friends carry a
 `lineHeight` matched to their size, so spreading one and changing only `fontSize`

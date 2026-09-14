@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 
+import { AbsenceSheet } from "@/components/AbsenceSheet";
 import { Button } from "@/components/Button";
 import { Icon } from "@/components/Icon";
 import { RefusalSheet } from "@/components/RefusalSheet";
@@ -12,6 +13,7 @@ import { api, ProblemError, type DayAvailability } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { timeInZone } from "@/lib/dates";
 import { refusal, type Refusal } from "@/lib/messages";
+import { absenceLabel, type AbsenceKind } from "@/lib/presence";
 import { at, radius, spacing, type, useTheme, useThemedStyles, type Theme } from "@/lib/theme";
 
 /**
@@ -35,7 +37,15 @@ export default function Today() {
   const queryClient = useQueryClient();
 
   const [openDay, setOpenDay] = useState<DayAvailability | null>(null);
+  const [away, setAway] = useState<string | null>(null);
   const [problem, setProblem] = useState<Refusal | null>(null);
+
+  const fail = (error: unknown) =>
+    setProblem(
+      error instanceof ProblemError
+        ? refusal(error.violations, error.detail)
+        : refusal([], "Could not reach the server."),
+    );
 
   const sites = useQuery({
     queryKey: ["sites"],
@@ -58,15 +68,51 @@ export default function Today() {
       queryClient.invalidateQueries({ queryKey: ["availability"] });
       queryClient.invalidateQueries({ queryKey: ["bookings"] });
     },
-    onError: (error) =>
-      setProblem(
-        error instanceof ProblemError
-          ? refusal(error.violations, error.detail)
-          : refusal([], "Could not reach the server."),
-      ),
+    onError: fail,
   });
 
   const days = week.data?.days ?? [];
+  const first = days[0]?.local_date;
+  const last = days[days.length - 1]?.local_date;
+
+  /**
+   * Declared days away (FR-5.5). Deliberately NOT gated on the presence kill switch:
+   * an absence is the user's own record of where they will be, and it also feeds
+   * assigned-desk release (FR-6.7). Switching presence off hides other people from you;
+   * it does not stop you saying you are on leave.
+   */
+  const absences = useQuery({
+    queryKey: ["absences", first, last],
+    queryFn: () => api.absences(token!, first!, last!),
+    enabled: !!token && !!first && !!last,
+  });
+  const awayByDate = useMemo(() => {
+    const map: Record<string, AbsenceKind> = {};
+    for (const a of absences.data ?? []) map[a.local_date] = a.kind;
+    return map;
+  }, [absences.data]);
+
+  const afterAbsence = () => {
+    setAway(null);
+    queryClient.invalidateQueries({ queryKey: ["absences"] });
+  };
+
+  const declare = useMutation({
+    mutationFn: (vars: { date: string; kind: AbsenceKind }) =>
+      api.declareAbsence(token!, vars.date, vars.kind),
+    onSuccess: afterAbsence,
+    // The server refuses while a desk is still held for that day, and names the booking
+    // in the violation so the sheet can say which one (FR-5.5). It does not cancel it
+    // for you — that is a side effect nobody asked for.
+    onError: fail,
+  });
+
+  const clearAway = useMutation({
+    mutationFn: (date: string) => api.clearAbsence(token!, date),
+    onSuccess: afterAbsence,
+    onError: fail,
+  });
+
   const today = days.find((d) => d.local_date === week.data?.today) ?? null;
   const next = days.find((d) => d.local_date !== week.data?.today && d.my_booking) ?? null;
 
@@ -99,6 +145,8 @@ export default function Today() {
           day={today}
           loading={week.isLoading}
           timezone={week.data?.site_timezone ?? null}
+          away={today ? (awayByDate[today.local_date] ?? null) : null}
+          onDeclare={() => setAway(week.data?.today ?? null)}
           onOpenPlan={(floorId, floorName) =>
             router.push({
               pathname: "/floor/[id]",
@@ -127,6 +175,7 @@ export default function Today() {
                 days={days}
                 value={week.data?.today ?? ""}
                 today={week.data?.today}
+                absences={awayByDate}
                 onChange={(date) => {
                   const day = days.find((d) => d.local_date === date);
                   if (day) setOpenDay(day);
@@ -161,8 +210,13 @@ export default function Today() {
       <DaySheet
         day={openDay}
         timezone={week.data?.site_timezone ?? null}
+        away={openDay ? (awayByDate[openDay.local_date] ?? null) : null}
         cancelling={cancel.isPending}
         onCancel={(id) => cancel.mutate(id)}
+        onAway={(localDate) => {
+          setOpenDay(null);
+          setAway(localDate);
+        }}
         onFindDesk={(localDate) => {
           setOpenDay(null);
           router.push({ pathname: "/pick-floor", params: { date: localDate } });
@@ -178,6 +232,15 @@ export default function Today() {
         onClose={() => setOpenDay(null)}
       />
 
+      <AbsenceSheet
+        localDate={away}
+        current={away ? (awayByDate[away] ?? null) : null}
+        busy={declare.isPending || clearAway.isPending}
+        onDeclare={(kind) => away && declare.mutate({ date: away, kind })}
+        onClear={() => away && clearAway.mutate(away)}
+        onClose={() => setAway(null)}
+      />
+
       <RefusalSheet refusal={problem} onClose={() => setProblem(null)} />
     </>
   );
@@ -191,6 +254,8 @@ function HeroCard({
   day,
   loading,
   timezone,
+  away,
+  onDeclare,
   onOpenPlan,
   onFindDesk,
   onManage,
@@ -198,6 +263,8 @@ function HeroCard({
   day: DayAvailability | null;
   loading: boolean;
   timezone: string | null;
+  away: AbsenceKind | null;
+  onDeclare: () => void;
   onOpenPlan: (floorId: string, floorName: string) => void;
   onFindDesk: () => void;
   onManage: () => void;
@@ -231,6 +298,35 @@ function HeroCard({
 
   const booking = day.my_booking;
 
+  // You have said where you'll be, and it isn't here (FR-5.5). The card states that
+  // back rather than nagging about the desks you didn't book — but it stays changeable,
+  // because plans change on the morning more often than they change the week before.
+  if (!booking && away) {
+    return (
+      <View style={styles.hero}>
+        <View style={styles.heroTop}>
+          <Text style={styles.heroLabelQuiet}>Not in today</Text>
+          <Pressable
+            onPress={onDeclare}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Change how today is marked"
+          >
+            <Text style={styles.heroLink}>Change</Text>
+          </Pressable>
+        </View>
+        <Text style={styles.heroHeadline}>{absenceLabel(away)}</Text>
+        <Text style={styles.heroBody}>Your team can see this on their week.</Text>
+        <Button
+          label="Find a desk anyway"
+          variant="ghost"
+          onPress={onFindDesk}
+          style={{ marginTop: spacing(1.5) }}
+        />
+      </View>
+    );
+  }
+
   if (!booking) {
     return (
       <View style={styles.hero}>
@@ -239,6 +335,12 @@ function HeroCard({
           {day.available} of {day.total} desks free
         </Text>
         <Button label="Find a desk" onPress={onFindDesk} style={{ marginTop: spacing(1.5) }} />
+        <Button
+          label="I'm not coming in"
+          variant="quiet"
+          onPress={onDeclare}
+          style={{ marginTop: spacing(1) }}
+        />
       </View>
     );
   }
@@ -280,16 +382,20 @@ function HeroCard({
 function DaySheet({
   day,
   timezone,
+  away,
   cancelling,
   onCancel,
+  onAway,
   onOpenPlan,
   onFindDesk,
   onClose,
 }: {
   day: DayAvailability | null;
   timezone: string | null;
+  away: AbsenceKind | null;
   cancelling: boolean;
   onCancel: (bookingId: string) => void;
+  onAway: (localDate: string) => void;
   onOpenPlan: (floorId: string, floorName: string) => void;
   onFindDesk: (localDate: string) => void;
   onClose: () => void;
@@ -333,17 +439,29 @@ function DaySheet({
               />
             </>
           ) : day.is_open && !day.blackout ? (
-            day.available > 0 ? (
+            <>
+              {away ? (
+                <Text style={styles.awayLine}>{absenceLabel(away)} — your team can see this.</Text>
+              ) : null}
+              {day.available > 0 ? (
+                <Button
+                  label="Find a desk"
+                  icon="plan"
+                  onPress={() => onFindDesk(day.local_date)}
+                />
+              ) : (
+                <Text style={styles.muted}>
+                  Every desk is taken. Try another day, or check back — people cancel.
+                </Text>
+              )}
+              {/* Always offered on a day you have not booked, full or not: a full day is
+                  exactly when telling your team you are staying home is worth doing. */}
               <Button
-                label="Find a desk"
-                icon="plan"
-                onPress={() => onFindDesk(day.local_date)}
+                label={away ? "Change or clear this" : "I'm not coming in"}
+                variant="quiet"
+                onPress={() => onAway(day.local_date)}
               />
-            ) : (
-              <Text style={styles.muted}>
-                Every desk is taken. Try another day, or check back — people cancel.
-              </Text>
-            )
+            </>
           ) : null}
         </>
       ) : null}
@@ -458,6 +576,7 @@ const makeStyles = (t: Theme) => ({
   },
   nextDay: { ...type.heading, color: t.color.ink },
 
+  awayLine: { ...type.body, color: t.color.accentText, fontWeight: "600" as const },
   sheetRow: { flexDirection: "row" as const, alignItems: "baseline" as const, gap: spacing(1) },
   sheetCode: { ...at(type.code, 21), color: t.color.ink },
 });

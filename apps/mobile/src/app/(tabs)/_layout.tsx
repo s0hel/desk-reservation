@@ -1,10 +1,19 @@
 import { Tabs } from "expo-router";
 
 import { Icon } from "@/components/Icon";
+import { useAuth } from "@/lib/auth";
 import { type, useTheme } from "@/lib/theme";
 
 export default function TabsLayout() {
   const theme = useTheme();
+  const { me } = useAuth();
+  /**
+   * The org-level kill switch (PRD Q6). Some works councils reject colleague
+   * visibility outright, and for those tenants every presence route 404s — so the tab
+   * has to be absent, not present and broken. Defaults to on while `/v1/me` is still
+   * in flight, matching the server's own default.
+   */
+  const presenceOn = me?.features?.presence !== false;
 
   return (
     <Tabs
@@ -34,6 +43,16 @@ export default function TabsLayout() {
         options={{
           title: "Spaces",
           tabBarIcon: ({ color, size }) => <Icon name="plan" color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="team"
+        options={{
+          title: "Team",
+          // `href: null` removes the tab from the bar; the route still exists, which
+          // is what lets a deep link land somewhere honest rather than nowhere.
+          href: presenceOn ? undefined : null,
+          tabBarIcon: ({ color, size }) => <Icon name="team" color={color} size={size} />,
         }}
       />
       <Tabs.Screen
