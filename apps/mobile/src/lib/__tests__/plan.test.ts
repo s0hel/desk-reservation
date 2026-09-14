@@ -133,3 +133,53 @@ describe("worklet contract", () => {
     expect(body.slice(0, body.indexOf("const cx"))).toContain('"worklet"');
   });
 });
+
+describe("viewportToPlan with a letterboxed plan", () => {
+  // A full-height viewport with a 3:2 plan centred in it: the plan occupies the
+  // middle band, and everything above and below is empty ground.
+  const boxed = {
+    tx: 0,
+    ty: 0,
+    scale: 1,
+    width: 400,
+    height: 800,
+    planX: 0,
+    planY: 267,
+    planWidth: 400,
+    planHeight: 266,
+  };
+
+  it("maps the centre of the drawn plan to its centre, not the viewport's", () => {
+    const p = viewportToPlan({ x: 200, y: 400 }, boxed);
+    expect(p.x).toBeCloseTo(0.5, 5);
+    expect(p.y).toBeCloseTo(0.5, 2);
+  });
+
+  it("maps the drawn plan's corners to 0 and 1", () => {
+    expect(viewportToPlan({ x: 0, y: 267 }, boxed).y).toBeCloseTo(0, 5);
+    expect(viewportToPlan({ x: 400, y: 533 }, boxed).y).toBeCloseTo(1, 2);
+  });
+
+  it("puts a tap in the letterbox outside the plan, so it selects nothing", () => {
+    // Above the plan. It must fall outside [0,1] rather than clamping onto the top
+    // row of desks, which would book the wrong one.
+    expect(viewportToPlan({ x: 200, y: 40 }, boxed).y).toBeLessThan(0);
+    expect(viewportToPlan({ x: 200, y: 760 }, boxed).y).toBeGreaterThan(1);
+  });
+
+  it("still zooms about the viewport centre", () => {
+    const zoomed = { ...boxed, scale: 2 };
+    // The viewport centre is also the plan centre here, so it is the fixed point.
+    const p = viewportToPlan({ x: 200, y: 400 }, zoomed);
+    expect(p.x).toBeCloseTo(0.5, 5);
+    expect(p.y).toBeCloseTo(0.5, 2);
+  });
+
+  it("is unchanged when the plan fills the viewport", () => {
+    const full = { tx: 12, ty: -8, scale: 1.7, width: 400, height: 266 };
+    const explicit = { ...full, planX: 0, planY: 0, planWidth: 400, planHeight: 266 };
+    expect(viewportToPlan({ x: 133, y: 90 }, full)).toEqual(
+      viewportToPlan({ x: 133, y: 90 }, explicit),
+    );
+  });
+});

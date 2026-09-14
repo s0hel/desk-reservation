@@ -1,7 +1,7 @@
 """Booking and availability endpoints (TDD §10, §11)."""
 
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, Query, Response
@@ -12,7 +12,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import Principal, current_principal, current_user, db
 from app.api.v1.admin import plan_url
 from app.core.errors import NotFound
+from app.core.time import materialize_opening_hours, now_utc, to_local_date
 from app.models import Booking, Floor, FloorPlanAsset, Resource, Site, User, Zone
+from app.models.booking import ACTIVE_STATUSES
 from app.services import availability as availability_service
 from app.services.booking import BookingRequest, cancel_booking, create_booking, resolve_window
 
@@ -257,3 +259,115 @@ async def cancel(
     resource = await session.scalar(select(Resource).where(Resource.id == booking.resource_id))
     site = await session.scalar(select(Site).where(Site.id == booking.site_id))
     return _to_out(booking, resource.code if resource else None, site.timezone if site else None)
+
+
+class DayBookingOut(BaseModel):
+    """The user's own booking on a day, flattened enough that the home screen needs no
+    second call to name the desk or link to its floor."""
+
+    id: uuid.UUID
+    resource_code: str | None
+    floor_id: uuid.UUID
+    floor_name: str
+    status: str
+    starts_at: datetime
+    ends_at: datetime
+
+
+class DayAvailabilityOut(BaseModel):
+    local_date: date
+    #: False when the site does not open at all — a weekend or a holiday. `total` and
+    #: `available` are then both zero, which is not the same as "full".
+    is_open: bool
+    total: int
+    available: int
+    my_booking: DayBookingOut | None = None
+
+
+class WeekAvailabilityOut(BaseModel):
+    site_id: uuid.UUID
+    site_name: str
+    site_timezone: str
+    #: Today *at the site*, which is what the home screen must highlight — not the
+    #: device's today (TDD §5).
+    today: date
+    days: list[DayAvailabilityOut]
+
+
+@router.get("/sites/{site_id}/availability", response_model=WeekAvailabilityOut)
+async def site_week_availability(
+    site_id: uuid.UUID,
+    session: Annotated[AsyncSession, Depends(db)],
+    user: Annotated[User, Depends(current_user)],
+    start: Annotated[date | None, Query(alias="from")] = None,
+    days: Annotated[int, Query(ge=1, le=31)] = 7,
+    kind: str = "desk",
+) -> WeekAvailabilityOut:
+    """A week of days at one site, with how full each is and what the user already has.
+
+    This is what FR-2.1 asks the home screen to show, and it exists because the only
+    other availability endpoint is per-floor: answering "how does my week look" from it
+    would take floors x days calls on every app open.
+    """
+    site = await session.scalar(select(Site).where(Site.id == site_id))
+    if site is None:
+        raise NotFound("Site not found")
+
+    today = to_local_date(site.timezone, now_utc())
+    first = start or today
+    dates = [first + timedelta(days=i) for i in range(days)]
+
+    # A closed day never reaches the database: there is no window to ask about, and
+    # "0 of 0 free" would read as "full" rather than "shut".
+    windows: dict[int, tuple[datetime, datetime]] = {}
+    for i, day in enumerate(dates):
+        hours = materialize_opening_hours(site.opening_hours or {}, site.timezone, day)
+        if hours is not None:
+            windows[i] = hours
+
+    counts = await availability_service.week_counts(
+        session, site_id=site_id, windows=windows, kind=kind
+    )
+
+    rows = await session.execute(
+        select(Booking, Resource.code, Floor.id, Floor.name)
+        .join(Resource, Resource.id == Booking.resource_id)
+        .join(Floor, Floor.id == Resource.floor_id)
+        .where(
+            Booking.user_id == user.id,
+            Booking.local_date >= dates[0],
+            Booking.local_date <= dates[-1],
+            Booking.status.in_(ACTIVE_STATUSES),
+        )
+    )
+    mine: dict[date, DayBookingOut] = {
+        booking.local_date: DayBookingOut(
+            id=booking.id,
+            resource_code=code,
+            floor_id=floor_id,
+            floor_name=floor_name,
+            status=booking.status,
+            # `bookings` stores one tstzrange, not two columns — the range is what
+            # the exclusion constraint indexes.
+            starts_at=booking.time_range.lower,
+            ends_at=booking.time_range.upper,
+        )
+        for booking, code, floor_id, floor_name in rows
+    }
+
+    return WeekAvailabilityOut(
+        site_id=site_id,
+        site_name=site.name,
+        site_timezone=site.timezone,
+        today=today,
+        days=[
+            DayAvailabilityOut(
+                local_date=day,
+                is_open=i in windows,
+                total=counts[i].total if i in counts else 0,
+                available=counts[i].available if i in counts else 0,
+                my_booking=mine.get(day),
+            )
+            for i, day in enumerate(dates)
+        ],
+    )

@@ -4,26 +4,10 @@
  * must not convert through the device's.
  */
 
-export type DayOption = { date: string; weekday: string; day: string; isToday: boolean };
-
 export function toLocalDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
     d.getDate(),
   ).padStart(2, "0")}`;
-}
-
-/** The next `count` days starting today, for the date strip (FR-2.1). */
-export function upcomingDays(count = 7, from = new Date()): DayOption[] {
-  return Array.from({ length: count }, (_, i) => {
-    const d = new Date(from);
-    d.setDate(d.getDate() + i);
-    return {
-      date: toLocalDate(d),
-      weekday: d.toLocaleDateString(undefined, { weekday: "short" }),
-      day: String(d.getDate()),
-      isToday: i === 0,
-    };
-  });
 }
 
 /** Render a site-local time-of-day from an ISO instant, in the SITE's zone. */

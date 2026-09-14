@@ -4,7 +4,7 @@
  */
 
 import type { Violation } from "../api";
-import { describe as describeViolation, describeAll } from "../messages";
+import { describe as describeViolation, describeAll, refusal } from "../messages";
 
 const v = (code: string, params: Record<string, unknown> = {}, severity = "block"): Violation =>
   ({ code, params, severity }) as Violation;
@@ -68,5 +68,68 @@ describe("describeAll", () => {
 
   it("uses the fallback when there are no violations at all", () => {
     expect(describeAll([], "Could not reach the server.")).toBe("Could not reach the server.");
+  });
+});
+
+describe("refusal", () => {
+  it("never says the same thing twice", () => {
+    // The sheet shows headline and detail stacked. Rendering `describe` for the first
+    // violation printed the identical sentence in both, which is what shipped.
+    const r = refusal([v("policy.already_booked_today", { date: "2026-09-14" })], "x");
+    expect(r.headline).toContain("Monday");
+    expect(r.detail).not.toBe(r.headline);
+    expect(r.detail).toBe("");
+  });
+
+  it("keeps the number that makes the rule credible", () => {
+    const r = refusal(
+      [v("policy.site_capacity_reached", { date: "2026-09-14", capacity: 80 })],
+      "x",
+    );
+    expect(r.headline).toContain("full");
+    expect(r.detail).toContain("80");
+  });
+
+  it("offers a fix when the rule implies one the user can act on", () => {
+    const r = refusal([v("policy.max_concurrent_reached", { held: 5, max: 5 })], "x");
+    expect(r.fix).toContain("Cancel");
+  });
+
+  it("flags the refusals another day would solve, and not the others", () => {
+    expect(refusal([v("policy.site_capacity_reached", { date: "2026-09-14" })], "x").otherDaysHelp)
+      .toBe(true);
+    expect(refusal([v("policy.max_concurrent_reached", { held: 5, max: 5 })], "x").otherDaysHelp)
+      .toBe(false);
+  });
+
+  it("still states every further violation, so one fix does not reveal the next", () => {
+    const r = refusal(
+      [
+        v("policy.already_booked_today", { date: "2026-09-14" }),
+        v("policy.horizon_exceeded", { max_days: 14 }),
+      ],
+      "x",
+    );
+    expect(r.detail).toContain("14 days");
+  });
+
+  it("falls back to the sentence for an unmapped code rather than showing a slug", () => {
+    const r = refusal([v("policy.brand_new_rule", {})], "x");
+    expect(r.headline).not.toContain("policy.brand_new_rule");
+    expect(r.detail.length).toBeGreaterThan(0);
+    // The code itself is still carried, for the support line at the foot of the sheet.
+    expect(r.code).toBe("policy.brand_new_rule");
+  });
+
+  it("keeps the network fallback when there are no violations at all", () => {
+    const r = refusal([], "Could not reach the server.");
+    expect(r.detail).toBe("Could not reach the server.");
+    expect(r.code).toBeNull();
+  });
+
+  it("ignores warnings, which must not produce a refusal sheet at all", () => {
+    const r = refusal([v("policy.room_capacity_fit", {}, "warn")], "fallback");
+    expect(r.headline).toBe("Something went wrong");
+    expect(r.detail).toBe("fallback");
   });
 });

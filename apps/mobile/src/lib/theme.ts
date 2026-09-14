@@ -144,6 +144,19 @@ export const type: Record<TypeName, TextStyle> = {
   },
 };
 
+/**
+ * A type role at a different size, with its line box scaled to match.
+ *
+ * Spreading a role and overriding `fontSize` alone keeps the role's `lineHeight`, so a
+ * 26pt code sat in a 20pt line box and was clipped top and bottom. This exists so that
+ * cannot happen: the ratio comes from the role itself.
+ */
+export function at(style: TextStyle, fontSize: number): TextStyle {
+  const base = style.fontSize ?? fontSize;
+  const ratio = (style.lineHeight ?? base) / base;
+  return { ...style, fontSize, lineHeight: Math.round(fontSize * ratio) };
+}
+
 export type Theme = {
   scheme: Scheme;
   color: Palette;

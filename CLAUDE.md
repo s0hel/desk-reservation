@@ -166,11 +166,28 @@ don't build against dev-login as if it were permanent.
   at the call site, so colour alone never means anything.
   Components take styles from `useThemedStyles(makeStyles)` with the `makeStyles` factory
   at **module scope** — its identity has to be stable or the sheet rebuilds every render.
+- `components/Sheet.tsx` — the bottom sheet, and **the replacement for `Alert.alert`**.
+  An alert is a dead end by construction: one line and a dismiss button. Every refusal
+  carries a code, typed params and enough context to offer a way forward (TDD §11), and
+  none of that survives being flattened into an alert string. Built on `Modal`, not a
+  pan gesture, deliberately — a drag handler would mean worklets, and the worklet rule
+  below has already been paid for once.
 - `components/Icon.tsx` — the icon set, hand-drawn on `react-native-svg` (already a
   dependency) rather than an icon font. A shared stroke weight is what makes a set look
   like a set, and that is the first thing lost to a third-party pack.
 - `app/` — expo-router file-based routes: `sign-in.tsx`, `(tabs)/` (index, spaces, me),
   `floor/[id].tsx`.
+
+**No screen may derive "today" from the device.** `GET /v1/sites/{id}/availability`
+returns the site's own `today` along with the week, and that is the only correct source
+(TDD §5) — a phone an hour behind Berlin will otherwise open the plan on a day the
+office was shut. The floor screen takes its day from a route param when it arrives from
+a booking, and from the site's `today` otherwise; `toLocalDate(new Date())` is gone from
+the screens for this reason.
+
+**Overriding a type role's `fontSize` requires `at()`.** `type.code` and friends carry a
+`lineHeight` matched to their size, so spreading one and changing only `fontSize`
+crams a 26pt glyph into a 20pt line box and clips it. `at(type.code, 26)` scales both.
 
 ## Cross-cutting contract
 

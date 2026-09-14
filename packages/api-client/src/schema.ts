@@ -202,6 +202,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/sites/{site_id}/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Site Week Availability
+         * @description A week of days at one site, with how full each is and what the user already has.
+         *
+         *     This is what FR-2.1 asks the home screen to show, and it exists because the only
+         *     other availability endpoint is per-floor: answering "how does my week look" from it
+         *     would take floors x days calls on every app open.
+         */
+        get: operations["site_week_availability_v1_sites__site_id__availability_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/plans/{asset_id}": {
         parameters: {
             query?: never;
@@ -522,6 +546,54 @@ export interface components {
              * @description Book on behalf of another user (FR-2.10).
              */
             user_id?: string | null;
+        };
+        /** DayAvailabilityOut */
+        DayAvailabilityOut: {
+            /**
+             * Local Date
+             * Format: date
+             */
+            local_date: string;
+            /** Is Open */
+            is_open: boolean;
+            /** Total */
+            total: number;
+            /** Available */
+            available: number;
+            my_booking?: components["schemas"]["DayBookingOut"] | null;
+        };
+        /**
+         * DayBookingOut
+         * @description The user's own booking on a day, flattened enough that the home screen needs no
+         *     second call to name the desk or link to its floor.
+         */
+        DayBookingOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Resource Code */
+            resource_code: string | null;
+            /**
+             * Floor Id
+             * Format: uuid
+             */
+            floor_id: string;
+            /** Floor Name */
+            floor_name: string;
+            /** Status */
+            status: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
         };
         /** DiscoverRequest */
         DiscoverRequest: {
@@ -889,6 +961,25 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** WeekAvailabilityOut */
+        WeekAvailabilityOut: {
+            /**
+             * Site Id
+             * Format: uuid
+             */
+            site_id: string;
+            /** Site Name */
+            site_name: string;
+            /** Site Timezone */
+            site_timezone: string;
+            /**
+             * Today
+             * Format: date
+             */
+            today: string;
+            /** Days */
+            days: components["schemas"]["DayAvailabilityOut"][];
         };
         /** ZoneOut */
         ZoneOut: {
@@ -1356,6 +1447,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BookingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    site_week_availability_v1_sites__site_id__availability_get: {
+        parameters: {
+            query?: {
+                from?: string | null;
+                days?: number;
+                kind?: string;
+            };
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WeekAvailabilityOut"];
                 };
             };
             /** @description Validation Error */

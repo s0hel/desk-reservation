@@ -104,3 +104,65 @@ async def suggest_alternative(
         if r.id != exclude and r.available:
             return r
     return None
+
+
+WEEK_SQL = text("""
+    WITH w(idx, ws, we) AS (
+        SELECT * FROM unnest(
+            CAST(:idx AS int[]), CAST(:starts AS timestamptz[]), CAST(:ends AS timestamptz[])
+        )
+    )
+    SELECT w.idx AS idx,
+           count(r.id) AS total,
+           count(r.id) FILTER (WHERE r.bookable AND b.id IS NULL) AS available
+    FROM w
+    CROSS JOIN resources r
+    LEFT JOIN LATERAL (
+        SELECT id FROM bookings
+        WHERE resource_id = r.id
+          AND status IN ('confirmed', 'checked_in')
+          AND time_range && tstzrange(w.ws, w.we, '[)')
+        LIMIT 1
+    ) b ON TRUE
+    WHERE r.site_id = :site_id
+      AND r.status = 'active'
+      AND (CAST(:kind AS text) IS NULL OR r.kind = CAST(:kind AS text))
+    GROUP BY w.idx
+""")
+
+
+@dataclass(frozen=True)
+class DayCount:
+    total: int
+    available: int
+
+
+async def week_counts(
+    session: AsyncSession,
+    *,
+    site_id: uuid.UUID,
+    windows: dict[int, tuple[datetime, datetime]],
+    kind: str | None = None,
+) -> dict[int, DayCount]:
+    """Free-vs-total for several days at one site, in a single round trip.
+
+    The home screen shows a week at once (FR-2.1), and seven sequential availability
+    calls on app open is exactly the Monday-morning read spike the schema was shaped to
+    survive — so the days are unnested into one query rather than looped. Closed days
+    are simply absent from `windows`: the caller already knows they are closed, and
+    asking the database about a day the site does not open is meaningless.
+    """
+    if not windows:
+        return {}
+    idx = sorted(windows)
+    rows = await session.execute(
+        WEEK_SQL,
+        {
+            "idx": idx,
+            "starts": [windows[i][0] for i in idx],
+            "ends": [windows[i][1] for i in idx],
+            "site_id": site_id,
+            "kind": kind,
+        },
+    )
+    return {r.idx: DayCount(total=r.total, available=r.available) for r in rows}

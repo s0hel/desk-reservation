@@ -3,7 +3,7 @@
  * not leak into which day a booking lands on.
  */
 
-import { formatDate, timeInZone, toLocalDate, upcomingDays } from "../dates";
+import { formatDate, timeInZone, toLocalDate } from "../dates";
 
 describe("toLocalDate", () => {
   it("formats a Date as YYYY-MM-DD", () => {
@@ -18,33 +18,6 @@ describe("toLocalDate", () => {
     // 23:30 local on the 14th is the 15th in UTC. The booking belongs to the 14th.
     const lateEvening = new Date(2026, 8, 14, 23, 30);
     expect(toLocalDate(lateEvening)).toBe("2026-09-14");
-  });
-});
-
-describe("upcomingDays", () => {
-  const from = new Date(2026, 8, 12); // Saturday
-
-  it("starts today and runs forward", () => {
-    const days = upcomingDays(7, from);
-    expect(days).toHaveLength(7);
-    expect(days[0].date).toBe("2026-09-12");
-    expect(days[6].date).toBe("2026-09-18");
-  });
-
-  it("marks only the first day as today", () => {
-    const days = upcomingDays(5, from);
-    expect(days.filter((d) => d.isToday)).toHaveLength(1);
-    expect(days[0].isToday).toBe(true);
-  });
-
-  it("crosses a month boundary correctly", () => {
-    const days = upcomingDays(3, new Date(2026, 8, 30));
-    expect(days.map((d) => d.date)).toEqual(["2026-09-30", "2026-10-01", "2026-10-02"]);
-  });
-
-  it("crosses a year boundary correctly", () => {
-    const days = upcomingDays(2, new Date(2026, 11, 31));
-    expect(days.map((d) => d.date)).toEqual(["2026-12-31", "2027-01-01"]);
   });
 });
 

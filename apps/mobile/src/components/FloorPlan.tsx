@@ -19,8 +19,8 @@
  *    re-uploading a higher-resolution plan does not invalidate placements.
  */
 
-import { useCallback, useMemo, useRef } from "react";
-import { Text, View, useWindowDimensions } from "react-native";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { View, useWindowDimensions } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   runOnJS,
@@ -41,9 +41,7 @@ import type { Plan, ResourceAvailability } from "@/lib/api";
 import {
   NODE_RADIUS, buildIndex, findNearest, shortLabel, viewportToPlan,
 } from "@/lib/plan";
-import {
-  radius as rad, spacing, type, useTheme, useThemedStyles, type Palette, type Theme,
-} from "@/lib/theme";
+import { useTheme, useThemedStyles, type Palette, type Theme } from "@/lib/theme";
 
 export type PlanZone = { id: string; name: string; polygon: number[][]; color?: string | null };
 
@@ -53,6 +51,8 @@ type Props = {
   /** The published plan image, or null while a floor has none. */
   plan?: Plan | null;
   aspectRatio?: number;
+  /** Viewport height. The plan is letterboxed inside it, never stretched to fit. */
+  height: number;
   onSelect: (resource: ResourceAvailability) => void;
 };
 
@@ -85,21 +85,47 @@ function paint(color: Palette, state: NodeState) {
   }
 }
 
-export function FloorPlan({ resources, zones = [], plan, aspectRatio, onSelect }: Props) {
+export function FloorPlan({
+  resources,
+  zones = [],
+  plan,
+  aspectRatio,
+  height,
+  onSelect,
+}: Props) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const { width } = useWindowDimensions();
-  const planWidth = width;
-  // The image's own ratio wins: positions are normalized against it (TDD §14.2), so
-  // drawing it at any other shape puts every desk in the wrong place.
-  const planHeight = width / (plan?.aspect_ratio ?? aspectRatio ?? 1.5);
+
+  // The viewport is the whole area it is given; the plan is drawn inside it at the
+  // image's own ratio and centred. Positions are normalized against that ratio
+  // (TDD §14.2), so stretching the drawing to fill the viewport would put every desk
+  // in the wrong place — the letterbox is the correct answer, not a compromise.
+  const ratio = plan?.aspect_ratio ?? aspectRatio ?? 1.5;
+  const planWidth = Math.min(width, height * ratio);
+  const planHeight = planWidth / ratio;
+  const planX = (width - planWidth) / 2;
+  const planY = (height - planHeight) / 2;
+
+  /**
+   * A floor plan is landscape and a phone is not, so "fit the whole plan" leaves the
+   * drawing in a band with dead space above and below it — and at that size 84 desks
+   * are about four points across, which is readable but not tappable.
+   *
+   * So the screen opens filled to the height and pans, and double tap zooms out to the
+   * overview. Scale 1 stays "the whole plan", which is what makes the overview a
+   * predictable place to land.
+   */
+  const fitScale = planHeight > 0 ? Math.max(1, height / planHeight) : 1;
 
   const index = useMemo(() => buildIndex(resources), [resources]);
   const byId = useMemo(() => new Map(resources.map((r) => [r.id, r])), [resources]);
   const lastTap = useRef(0);
+  const started = useRef(false);
 
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
+  const overview = useSharedValue(false);
   const tx = useSharedValue(0);
   const ty = useSharedValue(0);
   const savedTx = useSharedValue(0);
@@ -121,6 +147,15 @@ export function FloorPlan({ resources, zones = [], plan, aspectRatio, onSelect }
     },
     [index, byId, onSelect],
   );
+
+  // Applied once the viewport has been measured. Re-running it on every layout would
+  // yank the plan back to the start mid-pinch.
+  useEffect(() => {
+    if (started.current || planHeight <= 0) return;
+    started.current = true;
+    scale.value = fitScale;
+    savedScale.value = fitScale;
+  }, [fitScale, planHeight, scale, savedScale]);
 
   const pan = Gesture.Pan()
     // A real finger drifts a few pixels while tapping. Without a minimum distance the
@@ -154,7 +189,17 @@ export function FloorPlan({ resources, zones = [], plan, aspectRatio, onSelect }
       // values here (on the UI thread) is what keeps this correct mid-gesture.
       const point = viewportToPlan(
         { x: e.x, y: e.y },
-        { tx: tx.value, ty: ty.value, scale: scale.value, width: planWidth, height: planHeight },
+        {
+          tx: tx.value,
+          ty: ty.value,
+          scale: scale.value,
+          width,
+          height,
+          planX,
+          planY,
+          planWidth,
+          planHeight,
+        },
       );
       runOnJS(hitTest)(point.x, point.y);
     });
@@ -162,15 +207,16 @@ export function FloorPlan({ resources, zones = [], plan, aspectRatio, onSelect }
   const doubleTap = Gesture.Tap()
     .numberOfTaps(2)
     .onEnd(() => {
-      const reset = scale.value > 1.05;
-      scale.value = withTiming(reset ? 1 : 2.5, { duration: 180 });
-      savedScale.value = reset ? 1 : 2.5;
-      if (reset) {
-        tx.value = withTiming(0, { duration: 180 });
-        ty.value = withTiming(0, { duration: 180 });
-        savedTx.value = 0;
-        savedTy.value = 0;
-      }
+      // Toggle between the whole floor and the readable fill, and recentre either way:
+      // panning somewhere then zooming out used to leave the plan off-screen.
+      const next = overview.value ? fitScale : 1;
+      overview.value = !overview.value;
+      scale.value = withTiming(next, { duration: 180 });
+      savedScale.value = next;
+      tx.value = withTiming(0, { duration: 180 });
+      ty.value = withTiming(0, { duration: 180 });
+      savedTx.value = 0;
+      savedTy.value = 0;
     });
 
   const gesture = Gesture.Simultaneous(
@@ -192,9 +238,13 @@ export function FloorPlan({ resources, zones = [], plan, aspectRatio, onSelect }
     // the inverse transform below double-corrects them — which happens to be identity
     // at scale 1, so it looks correct until the first pinch.
     <GestureDetector gesture={gesture}>
-      <View testID="floor-plan" style={[styles.viewport, { height: planHeight }]}>
+      <View testID="floor-plan" style={[styles.viewport, { height }]}>
         <Animated.View style={[styles.canvas, animatedStyle]} pointerEvents="none">
-          <Svg width={planWidth} height={planHeight}>
+          <Svg
+            width={planWidth}
+            height={planHeight}
+            style={{ marginLeft: planX, marginTop: planY }}
+          >
             <Rect x={0} y={0} width={planWidth} height={planHeight} fill={theme.color.surface} />
             {/* The plan the admin published, if any. A floor without one still renders:
                 zones and desks on a plain ground, in the right places, because
@@ -287,53 +337,12 @@ export function FloorPlan({ resources, zones = [], plan, aspectRatio, onSelect }
           </Svg>
         </Animated.View>
 
-        <View style={styles.legend} pointerEvents="none">
-          {(["free", "taken", "yours", "unavailable"] as const).map((s) => {
-            const skin = paint(theme.color, s);
-            return (
-              <View key={s} style={styles.legendItem}>
-                <View
-                  style={[
-                    styles.swatch,
-                    {
-                      backgroundColor: skin.fill === "none" ? "transparent" : skin.fill,
-                      opacity: skin.opacity,
-                      borderWidth: skin.stroke ? 2 : 0,
-                      borderColor: skin.stroke,
-                    },
-                    skin.ring && styles.swatchRing,
-                  ]}
-                />
-                <Text style={styles.legendText}>
-                  {{ free: "Free", taken: "Taken", yours: "Yours", unavailable: "Closed" }[s]}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
       </View>
     </GestureDetector>
   );
 }
 
 const makeStyles = (t: Theme) => ({
-  viewport: { overflow: "hidden" as const, backgroundColor: t.color.ground },
+  viewport: { overflow: "hidden" as const, backgroundColor: t.color.surfaceAlt },
   canvas: { flex: 1 },
-  legend: {
-    position: "absolute" as const,
-    bottom: spacing(1),
-    left: spacing(1),
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: spacing(1.5),
-    flexWrap: "wrap" as const,
-    backgroundColor: t.color.surface,
-    borderRadius: rad.pill,
-    paddingVertical: spacing(0.75),
-    paddingHorizontal: spacing(1.5),
-  },
-  legendItem: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing(0.5) },
-  swatch: { width: 9, height: 9, borderRadius: rad.pill },
-  swatchRing: { borderWidth: 2, borderColor: t.color.state.yours },
-  legendText: { ...type.label, fontSize: 10, letterSpacing: 0.5, color: t.color.muted },
 });

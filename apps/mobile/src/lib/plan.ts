@@ -24,8 +24,24 @@ export type Viewport = {
   tx: number;
   ty: number;
   scale: number;
+  /** The touch surface — the whole untransformed viewport. */
   width: number;
   height: number;
+  /**
+   * Where the plan is actually drawn inside that viewport, before the transform.
+   *
+   * The two differ as soon as the viewport stops being exactly the plan's shape. Desk
+   * positions are normalized against the plan image's intrinsic aspect (TDD §14.2), so
+   * a full-height viewport letterboxes it, and a touch has to be measured against the
+   * drawn rect rather than against the surface it happened to land on.
+   *
+   * Omitted means "the plan fills the viewport", which is what the first version
+   * assumed everywhere.
+   */
+  planX?: number;
+  planY?: number;
+  planWidth?: number;
+  planHeight?: number;
 };
 
 /** Buckets are roughly three desk widths, so a tap inspects a handful of nodes. */
@@ -58,9 +74,15 @@ export function viewportToPlan(point: PlanPoint, v: Viewport): PlanPoint {
   "worklet";
   const cx = v.width / 2;
   const cy = v.height / 2;
+  // Undo the transform, which RN applies about the view's centre.
   const px = (point.x - v.tx - cx) / v.scale + cx;
   const py = (point.y - v.ty - cy) / v.scale + cy;
-  return { x: px / v.width, y: py / v.height };
+  // Then measure against the drawn plan rect, not the viewport.
+  const pw = v.planWidth ?? v.width;
+  const ph = v.planHeight ?? v.height;
+  const ox = v.planX ?? 0;
+  const oy = v.planY ?? 0;
+  return { x: (px - ox) / pw, y: (py - oy) / ph };
 }
 
 export type PlanIndex<T extends Placed> = Map<string, T[]>;

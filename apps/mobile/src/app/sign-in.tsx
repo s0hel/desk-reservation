@@ -6,7 +6,7 @@ import {
 
 import { ProblemError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { radius, spacing, type, useTheme, useThemedStyles, type Theme } from "@/lib/theme";
+import { at, radius, spacing, type, useTheme, useThemedStyles, type Theme } from "@/lib/theme";
 
 export default function SignIn() {
   const { signIn } = useAuth();
@@ -107,5 +107,5 @@ const makeStyles = (t: Theme) => ({
     backgroundColor: t.color.surfaceAlt,
     borderRadius: radius.m,
   },
-  noteText: { ...type.sub, fontSize: 13, color: t.color.muted },
+  noteText: { ...at(type.sub, 13), color: t.color.muted },
 });

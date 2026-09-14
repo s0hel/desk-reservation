@@ -71,6 +71,33 @@ export type Booking = {
   starts_at: string; ends_at: string; site_timezone: string | null;
 };
 
+/** One day in the week strip (FR-2.1). */
+export type DayAvailability = {
+  local_date: string;
+  /** False when the site does not open at all. Not the same as 0 free. */
+  is_open: boolean;
+  total: number;
+  available: number;
+  my_booking: {
+    id: string;
+    resource_code: string | null;
+    floor_id: string;
+    floor_name: string;
+    status: string;
+    starts_at: string;
+    ends_at: string;
+  } | null;
+};
+
+export type WeekAvailability = {
+  site_id: string;
+  site_name: string;
+  site_timezone: string;
+  /** Today at the SITE, which is the day the strip highlights (TDD §5). */
+  today: string;
+  days: DayAvailability[];
+};
+
 export type TokenPair = {
   access_token: string; refresh_token: string; expires_in: number; roles: string[];
 };
@@ -120,6 +147,16 @@ export const api = {
       `/v1/floors/${floorId}/availability?date=${date}&slot=${slot}${kind ? `&kind=${kind}` : ""}`,
       {}, t,
     ),
+
+  /**
+   * The whole week at one site in a single call. Seven per-floor availability calls on
+   * app open is the Monday-morning spike we are trying not to create.
+   */
+  week: (t: string, siteId: string, from?: string, days = 7, kind: "desk" | "room" = "desk") => {
+    const q = new URLSearchParams({ days: String(days), kind });
+    if (from) q.set("from", from);
+    return request<WeekAvailability>(`/v1/sites/${siteId}/availability?${q}`, {}, t);
+  },
 
   createBooking: (
     t: string,

@@ -639,6 +639,89 @@
         }
       }
     },
+    "/v1/sites/{site_id}/availability": {
+      "get": {
+        "tags": [
+          "bookings"
+        ],
+        "summary": "Site Week Availability",
+        "description": "A week of days at one site, with how full each is and what the user already has.\n\nThis is what FR-2.1 asks the home screen to show, and it exists because the only\nother availability endpoint is per-floor: answering \"how does my week look\" from it\nwould take floors x days calls on every app open.",
+        "operationId": "site_week_availability_v1_sites__site_id__availability_get",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Site Id"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 31,
+              "minimum": 1,
+              "default": 7,
+              "title": "Days"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "desk",
+              "title": "Kind"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeekAvailabilityOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/plans/{asset_id}": {
       "get": {
         "tags": [
@@ -1456,6 +1539,100 @@
           "local_date"
         ],
         "title": "CreateBookingIn"
+      },
+      "DayAvailabilityOut": {
+        "properties": {
+          "local_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Local Date"
+          },
+          "is_open": {
+            "type": "boolean",
+            "title": "Is Open"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "available": {
+            "type": "integer",
+            "title": "Available"
+          },
+          "my_booking": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DayBookingOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "local_date",
+          "is_open",
+          "total",
+          "available"
+        ],
+        "title": "DayAvailabilityOut"
+      },
+      "DayBookingOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "resource_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Code"
+          },
+          "floor_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Floor Id"
+          },
+          "floor_name": {
+            "type": "string",
+            "title": "Floor Name"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "starts_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Starts At"
+          },
+          "ends_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ends At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "resource_code",
+          "floor_id",
+          "floor_name",
+          "status",
+          "starts_at",
+          "ends_at"
+        ],
+        "title": "DayBookingOut",
+        "description": "The user's own booking on a day, flattened enough that the home screen needs no\nsecond call to name the desk or link to its floor."
       },
       "DiscoverRequest": {
         "properties": {
@@ -2429,6 +2606,44 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WeekAvailabilityOut": {
+        "properties": {
+          "site_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Site Id"
+          },
+          "site_name": {
+            "type": "string",
+            "title": "Site Name"
+          },
+          "site_timezone": {
+            "type": "string",
+            "title": "Site Timezone"
+          },
+          "today": {
+            "type": "string",
+            "format": "date",
+            "title": "Today"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/DayAvailabilityOut"
+            },
+            "type": "array",
+            "title": "Days"
+          }
+        },
+        "type": "object",
+        "required": [
+          "site_id",
+          "site_name",
+          "site_timezone",
+          "today",
+          "days"
+        ],
+        "title": "WeekAvailabilityOut"
       },
       "ZoneOut": {
         "properties": {
