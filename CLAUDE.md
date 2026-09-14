@@ -114,6 +114,30 @@ rooms cheap to build alongside desks. The one obligation that doesn't go away: r
 made unbookable in the customer's own directory/calendar system, or they'll be double-booked
 from Outlook/Google Calendar and this app cannot detect it.
 
+**Presence visibility is a query condition, never a serializer step.** Every query that
+can name a colleague carries `app/services/presence.py::visible_to(viewer)`. A user with
+`presence_visibility='nobody'` is *absent from the result set* — not returned with a
+`hidden: true` flag for a well-behaved client to respect (PRD Q6, TDD §11). The client is
+a binary we do not run, so a privacy control that depends on its cooperation is not a
+control. Two corollaries that are easy to undo by accident:
+
+- **Never return a count of people you will not also name.** "14 in the office" beside a
+  list of 12 identifies the two who opted out. `/v1/presence` therefore has no total; the
+  caller counts what it can see. Occupancy comes from the availability query, which names
+  nobody.
+- **A hidden colleague is a 404, not a 403.** Refusing by name confirms both that the
+  person exists and that they chose to hide, which is the fact they hid.
+
+`presence.py::_days_for` is the one helper with no filter of its own — it trusts the
+caller to pass an already-visible set, and must stay unreachable from anything else. The
+`visible_to` subqueries are explicitly `aliased`: two unaliased references to
+`group_members` let SQLAlchemy correlate the inner one away, which would compare a
+candidate's memberships against themselves and return true for everyone.
+`organizations.settings.presence_enabled` is the org-level kill switch — it defaults on,
+`require_presence` gates every colleague route, and `/v1/me` reports it under `features`
+so the app can drop the feature rather than offer it and fail. Absences are deliberately
+*not* gated: they are the user's own record and also feed assigned-desk release (FR-6.7).
+
 **Errors are RFC 9457 `problem+json` with machine-readable violations, everywhere.**
 `app/core/errors.py::ProblemError` subclasses (`NotFound`, `Unauthorized`, `Forbidden`,
 `PolicyViolation`, `ResourceUnavailable`) carry a `detail` (developer-facing English) and a
@@ -121,7 +145,9 @@ list of `Violation{code, params, severity}`. Clients render user-facing messages
 + `params` only — never from `detail` — which is what keeps refusals explainable and
 localizable. Policy reason codes live in `packages/shared/src/reason-codes.ts` and are
 hand-mirrored in `app/policy/codes.py`; keep both in sync when adding one (there's a comment
-in each pointing at the other). `422` validation errors get the same shape via the
+in each pointing at the other). `tests/test_reason_codes.py` parses the TypeScript and fails
+if the two diverge — until it was written, the "kept in sync by CI" claim was not true of
+anything. `422` validation errors get the same shape via the
 `RequestValidationError` handler in `app/main.py`, so the mobile client has exactly one error
 contract.
 
@@ -129,7 +155,8 @@ contract.
 
 - `api/deps.py` — `Principal` (decoded JWT claims), the `db`/`anon_db` session dependencies
   described above, `current_user`, `require_role(*roles)`.
-- `api/v1/` — routers (`auth`, `me`, `spaces`), mounted under `/v1` in `api/v1/router.py`.
+- `api/v1/` — routers (`auth`, `me`, `spaces`, `bookings`, `presence`, `plans`, `admin`),
+  mounted under `/v1` in `api/v1/router.py`.
 - `core/` — `config.py` (pydantic-settings `Settings`, with `assert_safe()` run at startup to
   fail fast on a dev-login or weak JWT key outside development), `security.py` (JWT),
   `time.py` (see above), `errors.py`, `ids.py` (UUIDv7 PKs — see `PKMixin`), `logging.py`
@@ -140,7 +167,8 @@ contract.
   tenant-scoped model mixes in `PKMixin`, `TimestampMixin`, `OrgScopedMixin` from
   `db/base.py`.
 - `services/` — `oidc.py`, `tokens.py` (refresh token rotation with reuse detection: a
-  replayed refresh token revokes the whole token family — see `RefreshToken.family_id`).
+  replayed refresh token revokes the whole token family — see `RefreshToken.family_id`),
+  `presence.py` (see the visibility invariant above).
 - `seed.py` — the `make seed` fixture data described in the README/Makefile.
 
 Dev-only sign-in (`POST /v1/auth/dev-login`) exists so Phase 0 is usable before a customer

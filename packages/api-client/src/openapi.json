@@ -722,6 +722,460 @@
         }
       }
     },
+    "/v1/presence": {
+      "get": {
+        "tags": [
+          "presence"
+        ],
+        "summary": "Who Is In",
+        "description": "Who is in at a site on a day (FR-5.1).",
+        "operationId": "who_is_in_v1_presence_get",
+        "parameters": [
+          {
+            "name": "site",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Site"
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresenceOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/users/{user_id}/presence": {
+      "get": {
+        "tags": [
+          "presence"
+        ],
+        "summary": "Colleague Presence",
+        "description": "One colleague's upcoming office days (FR-5.2), subject to their setting (FR-5.6).\n\nA colleague who has hidden themselves is a 404, not a 403: refusing by name would\nconfirm both that they exist and that they chose to hide, which is the fact they hid.",
+        "operationId": "colleague_presence_v1_users__user_id__presence_get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "site",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Site"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 31,
+              "minimum": 1,
+              "default": 14,
+              "title": "Days"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPresenceOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/colleagues": {
+      "get": {
+        "tags": [
+          "presence"
+        ],
+        "summary": "Search Colleagues",
+        "description": "Find a colleague by name (FR-5.2, and the first half of FR-5.3).",
+        "operationId": "search_colleagues_v1_colleagues_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 100,
+              "title": "Q"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ColleagueOut"
+                  },
+                  "title": "Response Search Colleagues V1 Colleagues Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/team": {
+      "get": {
+        "tags": [
+          "presence"
+        ],
+        "summary": "Team",
+        "description": "A week of the team's planned presence (FR-5.4).\n\nAnchor days (FR-5.8) are not here: they are P1 and would need a column on `groups`\nthat nothing writes yet.",
+        "operationId": "team_v1_team_get",
+        "parameters": [
+          {
+            "name": "group",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Group"
+            }
+          },
+          {
+            "name": "site",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Site"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 31,
+              "minimum": 1,
+              "default": 7,
+              "title": "Days"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/absences": {
+      "get": {
+        "tags": [
+          "presence"
+        ],
+        "summary": "List Absences",
+        "operationId": "list_absences_v1_absences_get",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "From"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AbsenceOut"
+                  },
+                  "title": "Response List Absences V1 Absences Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/absences/{local_date}": {
+      "put": {
+        "tags": [
+          "presence"
+        ],
+        "summary": "Declare Absence",
+        "description": "Declare a day away without booking a desk (FR-5.5).\n\nRefused while a desk is still held for that day. The violation names the booking so\nthe client can offer to cancel it \u2014 cancelling silently is a side effect nobody\nasked for.",
+        "operationId": "declare_absence_v1_absences__local_date__put",
+        "parameters": [
+          {
+            "name": "local_date",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Local Date"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AbsenceIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AbsenceOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "presence"
+        ],
+        "summary": "Clear Absence",
+        "operationId": "clear_absence_v1_absences__local_date__delete",
+        "parameters": [
+          {
+            "name": "local_date",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Local Date"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/plans/{asset_id}": {
       "get": {
         "tags": [
@@ -1292,6 +1746,43 @@
   },
   "components": {
     "schemas": {
+      "AbsenceIn": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "remote",
+              "leave",
+              "travel"
+            ],
+            "title": "Kind"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "AbsenceIn"
+      },
+      "AbsenceOut": {
+        "properties": {
+          "local_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Local Date"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          }
+        },
+        "type": "object",
+        "required": [
+          "local_date",
+          "kind"
+        ],
+        "title": "AbsenceOut"
+      },
       "AvailabilityOut": {
         "properties": {
           "floor_id": {
@@ -1472,6 +1963,47 @@
         ],
         "title": "BookingOut"
       },
+      "ColleagueOut": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "initials": {
+            "type": "string",
+            "title": "Initials"
+          },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
+          "is_me": {
+            "type": "boolean",
+            "title": "Is Me"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "display_name",
+          "initials",
+          "avatar_url",
+          "is_me"
+        ],
+        "title": "ColleagueOut"
+      },
       "CreateBookingIn": {
         "properties": {
           "resource_id": {
@@ -1633,6 +2165,36 @@
         ],
         "title": "DayBookingOut",
         "description": "The user's own booking on a day, flattened enough that the home screen needs no\nsecond call to name the desk or link to its floor."
+      },
+      "DayPresenceOut": {
+        "properties": {
+          "local_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Local Date"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "seat": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SeatOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "local_date",
+          "status",
+          "seat"
+        ],
+        "title": "DayPresenceOut"
       },
       "DiscoverRequest": {
         "properties": {
@@ -2245,6 +2807,13 @@
             },
             "type": "array",
             "title": "Roles"
+          },
+          "features": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Features"
           }
         },
         "type": "object",
@@ -2256,9 +2825,67 @@
           "locale",
           "home_site_id",
           "presence_visibility",
-          "roles"
+          "roles",
+          "features"
         ],
         "title": "MeResponse"
+      },
+      "PersonOut": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "initials": {
+            "type": "string",
+            "title": "Initials"
+          },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "seat": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SeatOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "is_me": {
+            "type": "boolean",
+            "title": "Is Me"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "display_name",
+          "initials",
+          "avatar_url",
+          "status",
+          "seat",
+          "is_me"
+        ],
+        "title": "PersonOut"
       },
       "Position": {
         "properties": {
@@ -2289,6 +2916,34 @@
           "y"
         ],
         "title": "Position"
+      },
+      "PresenceOut": {
+        "properties": {
+          "site_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Site Id"
+          },
+          "local_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Local Date"
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/PersonOut"
+            },
+            "type": "array",
+            "title": "People"
+          }
+        },
+        "type": "object",
+        "required": [
+          "site_id",
+          "local_date",
+          "people"
+        ],
+        "title": "PresenceOut"
       },
       "PublishIn": {
         "properties": {
@@ -2489,6 +3144,42 @@
         ],
         "title": "ResourceOut"
       },
+      "SeatOut": {
+        "properties": {
+          "floor_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Floor Id"
+          },
+          "floor_name": {
+            "type": "string",
+            "title": "Floor Name"
+          },
+          "resource_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Resource Id"
+          },
+          "resource_code": {
+            "type": "string",
+            "title": "Resource Code"
+          },
+          "position": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Position"
+          }
+        },
+        "type": "object",
+        "required": [
+          "floor_id",
+          "floor_name",
+          "resource_id",
+          "resource_code",
+          "position"
+        ],
+        "title": "SeatOut"
+      },
       "SiteIn": {
         "properties": {
           "name": {
@@ -2527,6 +3218,105 @@
         ],
         "title": "SiteIn"
       },
+      "TeamMemberOut": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "initials": {
+            "type": "string",
+            "title": "Initials"
+          },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
+          "is_me": {
+            "type": "boolean",
+            "title": "Is Me"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/DayPresenceOut"
+            },
+            "type": "array",
+            "title": "Days"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "display_name",
+          "initials",
+          "avatar_url",
+          "is_me",
+          "days"
+        ],
+        "title": "TeamMemberOut"
+      },
+      "TeamOut": {
+        "properties": {
+          "group_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Id"
+          },
+          "group_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Name"
+          },
+          "dates": {
+            "items": {
+              "type": "string",
+              "format": "date"
+            },
+            "type": "array",
+            "title": "Dates"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/TeamMemberOut"
+            },
+            "type": "array",
+            "title": "Members"
+          }
+        },
+        "type": "object",
+        "required": [
+          "group_id",
+          "group_name",
+          "dates",
+          "members"
+        ],
+        "title": "TeamOut"
+      },
       "UpdateMe": {
         "properties": {
           "locale": {
@@ -2543,7 +3333,12 @@
           "presence_visibility": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "everyone",
+                  "team_only",
+                  "nobody"
+                ]
               },
               {
                 "type": "null"
@@ -2566,6 +3361,50 @@
         },
         "type": "object",
         "title": "UpdateMe"
+      },
+      "UserPresenceOut": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "initials": {
+            "type": "string",
+            "title": "Initials"
+          },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/DayPresenceOut"
+            },
+            "type": "array",
+            "title": "Days"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "display_name",
+          "initials",
+          "avatar_url",
+          "days"
+        ],
+        "title": "UserPresenceOut"
       },
       "ValidationError": {
         "properties": {

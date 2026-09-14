@@ -226,6 +226,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/presence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who Is In
+         * @description Who is in at a site on a day (FR-5.1).
+         */
+        get: operations["who_is_in_v1_presence_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/users/{user_id}/presence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Colleague Presence
+         * @description One colleague's upcoming office days (FR-5.2), subject to their setting (FR-5.6).
+         *
+         *     A colleague who has hidden themselves is a 404, not a 403: refusing by name would
+         *     confirm both that they exist and that they chose to hide, which is the fact they hid.
+         */
+        get: operations["colleague_presence_v1_users__user_id__presence_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/colleagues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Colleagues
+         * @description Find a colleague by name (FR-5.2, and the first half of FR-5.3).
+         */
+        get: operations["search_colleagues_v1_colleagues_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/team": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Team
+         * @description A week of the team's planned presence (FR-5.4).
+         *
+         *     Anchor days (FR-5.8) are not here: they are P1 and would need a column on `groups`
+         *     that nothing writes yet.
+         */
+        get: operations["team_v1_team_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/absences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Absences */
+        get: operations["list_absences_v1_absences_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/absences/{local_date}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Declare Absence
+         * @description Declare a day away without booking a desk (FR-5.5).
+         *
+         *     Refused while a desk is still held for that day. The violation names the booking so
+         *     the client can offer to cancel it — cancelling silently is a side effect nobody
+         *     asked for.
+         */
+        put: operations["declare_absence_v1_absences__local_date__put"];
+        post?: never;
+        /** Clear Absence */
+        delete: operations["clear_absence_v1_absences__local_date__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/plans/{asset_id}": {
         parameters: {
             query?: never;
@@ -429,6 +557,24 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AbsenceIn */
+        AbsenceIn: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "remote" | "leave" | "travel";
+        };
+        /** AbsenceOut */
+        AbsenceOut: {
+            /**
+             * Local Date
+             * Format: date
+             */
+            local_date: string;
+            /** Kind */
+            kind: string;
+        };
         /** AvailabilityOut */
         AvailabilityOut: {
             /**
@@ -519,6 +665,22 @@ export interface components {
             /** Site Timezone */
             site_timezone?: string | null;
         };
+        /** ColleagueOut */
+        ColleagueOut: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Display Name */
+            display_name: string;
+            /** Initials */
+            initials: string;
+            /** Avatar Url */
+            avatar_url: string | null;
+            /** Is Me */
+            is_me: boolean;
+        };
         /** CreateBookingIn */
         CreateBookingIn: {
             /**
@@ -594,6 +756,17 @@ export interface components {
              * Format: date-time
              */
             ends_at: string;
+        };
+        /** DayPresenceOut */
+        DayPresenceOut: {
+            /**
+             * Local Date
+             * Format: date
+             */
+            local_date: string;
+            /** Status */
+            status: string;
+            seat: components["schemas"]["SeatOut"] | null;
         };
         /** DiscoverRequest */
         DiscoverRequest: {
@@ -832,6 +1005,29 @@ export interface components {
             presence_visibility: string;
             /** Roles */
             roles: string[];
+            /** Features */
+            features: {
+                [key: string]: boolean;
+            };
+        };
+        /** PersonOut */
+        PersonOut: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Display Name */
+            display_name: string;
+            /** Initials */
+            initials: string;
+            /** Avatar Url */
+            avatar_url: string | null;
+            /** Status */
+            status: string;
+            seat: components["schemas"]["SeatOut"] | null;
+            /** Is Me */
+            is_me: boolean;
         };
         /** Position */
         Position: {
@@ -844,6 +1040,21 @@ export interface components {
              * @default 0
              */
             rotation: number;
+        };
+        /** PresenceOut */
+        PresenceOut: {
+            /**
+             * Site Id
+             * Format: uuid
+             */
+            site_id: string;
+            /**
+             * Local Date
+             * Format: date
+             */
+            local_date: string;
+            /** People */
+            people: components["schemas"]["PersonOut"][];
         };
         /** PublishIn */
         PublishIn: {
@@ -927,6 +1138,27 @@ export interface components {
             /** Site Timezone */
             site_timezone: string;
         };
+        /** SeatOut */
+        SeatOut: {
+            /**
+             * Floor Id
+             * Format: uuid
+             */
+            floor_id: string;
+            /** Floor Name */
+            floor_name: string;
+            /**
+             * Resource Id
+             * Format: uuid
+             */
+            resource_id: string;
+            /** Resource Code */
+            resource_code: string;
+            /** Position */
+            position: {
+                [key: string]: unknown;
+            };
+        };
         /** SiteIn */
         SiteIn: {
             /** Name */
@@ -940,14 +1172,59 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** TeamMemberOut */
+        TeamMemberOut: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Display Name */
+            display_name: string;
+            /** Initials */
+            initials: string;
+            /** Avatar Url */
+            avatar_url: string | null;
+            /** Is Me */
+            is_me: boolean;
+            /** Days */
+            days: components["schemas"]["DayPresenceOut"][];
+        };
+        /** TeamOut */
+        TeamOut: {
+            /** Group Id */
+            group_id: string | null;
+            /** Group Name */
+            group_name: string | null;
+            /** Dates */
+            dates: string[];
+            /** Members */
+            members: components["schemas"]["TeamMemberOut"][];
+        };
         /** UpdateMe */
         UpdateMe: {
             /** Locale */
             locale?: string | null;
             /** Presence Visibility */
-            presence_visibility?: string | null;
+            presence_visibility?: ("everyone" | "team_only" | "nobody") | null;
             /** Home Site Id */
             home_site_id?: string | null;
+        };
+        /** UserPresenceOut */
+        UserPresenceOut: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Display Name */
+            display_name: string;
+            /** Initials */
+            initials: string;
+            /** Avatar Url */
+            avatar_url: string | null;
+            /** Days */
+            days: components["schemas"]["DayPresenceOut"][];
         };
         /** ValidationError */
         ValidationError: {
@@ -1483,6 +1760,235 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["WeekAvailabilityOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    who_is_in_v1_presence_get: {
+        parameters: {
+            query: {
+                site: string;
+                date?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresenceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    colleague_presence_v1_users__user_id__presence_get: {
+        parameters: {
+            query?: {
+                site?: string | null;
+                from?: string | null;
+                days?: number;
+            };
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPresenceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_colleagues_v1_colleagues_get: {
+        parameters: {
+            query: {
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ColleagueOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    team_v1_team_get: {
+        parameters: {
+            query?: {
+                group?: string | null;
+                site?: string | null;
+                from?: string | null;
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_absences_v1_absences_get: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AbsenceOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    declare_absence_v1_absences__local_date__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                local_date: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AbsenceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AbsenceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_absence_v1_absences__local_date__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                local_date: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

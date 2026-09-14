@@ -19,6 +19,9 @@ DELEGATION_NOT_PERMITTED: Final = "policy.delegation_not_permitted"
 ROOM_MAX_DURATION: Final = "policy.room_max_duration"
 ROOM_ADVANCE_LIMIT: Final = "policy.room_advance_limit"
 ROOM_CAPACITY_FIT: Final = "policy.room_capacity_fit"  # severity: warn
+ABSENCE_CONFLICTS_WITH_BOOKING: Final = "presence.absence_conflicts_with_booking"
+ABSENCE_KIND_UNKNOWN: Final = "presence.absence_kind_unknown"
+VISIBILITY_UNKNOWN: Final = "presence.visibility_unknown"
 RESOURCE_UNAVAILABLE: Final = "resource.unavailable"
 RESOURCE_OUT_OF_SERVICE: Final = "resource.out_of_service"
 

@@ -27,6 +27,9 @@ export const REASON_CODES = {
   ROOM_MAX_DURATION: "policy.room_max_duration",
   ROOM_ADVANCE_LIMIT: "policy.room_advance_limit",
   ROOM_CAPACITY_FIT: "policy.room_capacity_fit", // severity: warn, not block
+  ABSENCE_CONFLICTS_WITH_BOOKING: "presence.absence_conflicts_with_booking",
+  ABSENCE_KIND_UNKNOWN: "presence.absence_kind_unknown",
+  VISIBILITY_UNKNOWN: "presence.visibility_unknown",
   RESOURCE_UNAVAILABLE: "resource.unavailable",
   RESOURCE_OUT_OF_SERVICE: "resource.out_of_service",
 } as const;

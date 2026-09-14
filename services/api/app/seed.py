@@ -38,11 +38,12 @@ OPENING_HOURS = {
     "fri": ["07:00", "20:00"],
 }
 
+#: email, name, role, team, presence visibility (FR-5.6).
 PEOPLE = [
-    ("priya.raman@example.com", "Priya Raman", "employee"),
-    ("marcus.hale@example.com", "Marcus Hale", "team_lead"),
-    ("dana.okafor@example.com", "Dana Okafor", "site_admin"),
-    ("sam.vasquez@example.com", "Sam Vasquez", "org_admin"),
+    ("priya.raman@example.com", "Priya Raman", "employee", "Engineering", "everyone"),
+    ("marcus.hale@example.com", "Marcus Hale", "team_lead", "Engineering", "everyone"),
+    ("dana.okafor@example.com", "Dana Okafor", "site_admin", "Design", "team_only"),
+    ("sam.vasquez@example.com", "Sam Vasquez", "org_admin", "Design", "nobody"),
 ]
 
 DESK_ATTRS = [
@@ -109,12 +110,16 @@ async def seed() -> None:
         s.add(site)
         await s.flush()
 
-        engineering = Group(id=uuid7(), organization_id=ORG_ID, name="Engineering")
-        s.add(engineering)
+        teams = {
+            name: Group(id=uuid7(), organization_id=ORG_ID, name=name)
+            for name in ("Engineering", "Design")
+        }
+        for group in teams.values():
+            s.add(group)
         await s.flush()
 
         users: list[User] = []
-        for email, name, _role in PEOPLE:
+        for email, name, _role, _team, visibility in PEOPLE:
             u = User(
                 id=uuid7(),
                 organization_id=ORG_ID,
@@ -122,17 +127,18 @@ async def seed() -> None:
                 display_name=name,
                 home_site_id=site.id,
                 locale="en",
+                presence_visibility=visibility,
             )
             s.add(u)
             users.append(u)
         await s.flush()
-        for u, (_, _, role) in zip(users, PEOPLE, strict=True):
+        for u, (_, _, role, team, _visibility) in zip(users, PEOPLE, strict=True):
             s.add(RoleAssignment(id=uuid7(), organization_id=ORG_ID, user_id=u.id, role=role))
             s.add(
                 GroupMember(
                     id=uuid7(),
                     organization_id=ORG_ID,
-                    group_id=engineering.id,
+                    group_id=teams[team].id,
                     user_id=u.id,
                     role="lead" if role == "team_lead" else "member",
                 )
