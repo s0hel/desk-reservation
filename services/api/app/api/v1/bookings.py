@@ -11,11 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import Principal, current_principal, current_user, db
 from app.api.v1.admin import plan_url
-from app.core.errors import NotFound
+from app.core.errors import NotFound, PolicyViolation
 from app.core.time import materialize_opening_hours, now_utc, to_local_date
 from app.models import Booking, Floor, FloorPlanAsset, Resource, Site, User, Zone
 from app.models.booking import ACTIVE_STATUSES
 from app.services import availability as availability_service
+from app.services import restrictions
 from app.services.booking import BookingRequest, cancel_booking, create_booking, resolve_window
 
 router = APIRouter(tags=["bookings"])
@@ -23,6 +24,11 @@ router = APIRouter(tags=["bookings"])
 DELEGATE_ROLES = {"team_lead", "site_admin", "org_admin"}
 
 Slot = Literal["full_day", "am", "pm", "custom"]
+
+
+class ViolationOut(BaseModel):
+    code: str
+    params: dict
 
 
 class ResourceAvailabilityOut(BaseModel):
@@ -38,6 +44,10 @@ class ResourceAvailabilityOut(BaseModel):
     bookable: bool
     out_of_service_reason: str | None
     occupied_by_me: bool
+    #: Why *this* viewer may not book it, when the reason is about them rather than the
+    #: desk — a zone held for another team (FR-6.4). Rendered from the code like any
+    #: other refusal, so the plan can explain itself without new message plumbing.
+    restriction: ViolationOut | None = None
 
 
 class ZoneOut(BaseModel):
@@ -139,6 +149,17 @@ async def floor_availability(
         raise NotFound("Site not found")
 
     starts_at, ends_at = resolve_window(site, local_date, slot, None, None)
+
+    # A blacked-out day refuses here rather than returning a plan full of desks that
+    # cannot be booked, exactly as a closed day already does (FR-6.5). The client
+    # renders the code, which it already handles.
+    blackouts = await restrictions.blackouts_for(
+        session, site_id=site.id, start=local_date, end=local_date
+    )
+    closed = restrictions.blackout_violation(blackouts, local_date=local_date, floor_id=floor_id)
+    if closed is not None:
+        raise PolicyViolation("date is blacked out", violations=[closed])
+
     rows = await availability_service.floor_availability(
         session,
         floor_id=floor_id,
@@ -148,7 +169,24 @@ async def floor_availability(
         min_capacity=min_capacity,
         filters=filters,
     )
-    zones = await session.scalars(select(Zone).where(Zone.floor_id == floor_id))
+    zones = list(await session.scalars(select(Zone).where(Zone.floor_id == floor_id)))
+
+    # The same decision function the booking rule uses (FR-6.4). Computing "can they
+    # book here" a second way here is how a desk comes to render green and then refuse.
+    member_of = await restrictions.group_ids_for(session, user.id)
+    permissions = await restrictions.zone_permissions_for(session, [z.id for z in zones])
+    now = now_utc()
+    zone_blocks: dict[uuid.UUID, ViolationOut] = {}
+    for zone in zones:
+        violation = restrictions.zone_violation(
+            permissions.get(zone.id, []),
+            member_of=member_of,
+            site_timezone=site.timezone,
+            local_date=local_date,
+            now=now,
+        )
+        if violation is not None:
+            zone_blocks[zone.id] = ViolationOut(code=violation.code, params=violation.params)
 
     # The PUBLISHED plan only. `floors.plan_asset_id` is moved by publishing, so an
     # admin's unpublished replacement cannot reach an employee's screen from here.
@@ -173,7 +211,7 @@ async def floor_availability(
         ends_at=ends_at,
         site_timezone=site.timezone,
         total=len(rows),
-        available=sum(1 for r in rows if r.available),
+        available=sum(1 for r in rows if r.available and r.zone_id not in zone_blocks),
         resources=[
             ResourceAvailabilityOut(
                 id=r.id,
@@ -184,10 +222,13 @@ async def floor_availability(
                 position=r.position,
                 attributes=r.attributes,
                 zone_id=r.zone_id,
-                available=r.available,
+                # Restricted desks are not "available" to this viewer, so they cannot
+                # render as free. `bookable` stays a fact about the desk.
+                available=r.available and r.zone_id not in zone_blocks,
                 bookable=r.bookable,
                 out_of_service_reason=r.out_of_service_reason,
                 occupied_by_me=r.occupied_by == user.id,
+                restriction=zone_blocks.get(r.zone_id),
             )
             for r in rows
         ],
@@ -276,11 +317,17 @@ class DayBookingOut(BaseModel):
 
 class DayAvailabilityOut(BaseModel):
     local_date: date
-    #: False when the site does not open at all — a weekend or a holiday. `total` and
-    #: `available` are then both zero, which is not the same as "full".
+    #: False when the site does not open at all — a weekend. `total` and `available`
+    #: are then both zero, which is not the same as "full".
     is_open: bool
     total: int
     available: int
+    #: True when a blackout closes the day (FR-6.5). Distinct from `is_open`: the office
+    #: keeps its usual hours and an admin has closed it. A separate flag from the reason
+    #: because the reason is optional free text — inferring "closed" from a non-empty
+    #: string makes a reasonless closure look open, and makes a missing field look shut.
+    blackout: bool = False
+    blackout_reason: str | None = None
     my_booking: DayBookingOut | None = None
 
 
@@ -329,6 +376,17 @@ async def site_week_availability(
         session, site_id=site_id, windows=windows, kind=kind
     )
 
+    # A blacked-out day must not advertise free desks it will then refuse (FR-6.5).
+    # Site-wide and org-wide rows only: a single floor closing does not close the site.
+    blackouts = await restrictions.blackouts_for(
+        session, site_id=site_id, start=dates[0], end=dates[-1]
+    )
+    blocked = {
+        day: (hit.reason or None)
+        for day in dates
+        if (hit := restrictions.blackout_hit(blackouts, local_date=day, floor_id=None))
+    }
+
     rows = await session.execute(
         select(Booking, Resource.code, Floor.id, Floor.name)
         .join(Resource, Resource.id == Booking.resource_id)
@@ -365,7 +423,9 @@ async def site_week_availability(
                 local_date=day,
                 is_open=i in windows,
                 total=counts[i].total if i in counts else 0,
-                available=counts[i].available if i in counts else 0,
+                available=0 if day in blocked else (counts[i].available if i in counts else 0),
+                blackout=day in blocked,
+                blackout_reason=blocked.get(day),
                 my_booking=mine.get(day),
             )
             for i, day in enumerate(dates)

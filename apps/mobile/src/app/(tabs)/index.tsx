@@ -111,7 +111,10 @@ export default function Today() {
 
         <View style={styles.section}>
           <Text style={styles.label}>Your week</Text>
-          {week.isError ? (
+          {/* Only when there is nothing to show. A failed *re*fetch leaves the last good
+              week in `data`, and reporting an error beside a hero card rendered from
+              that same data is incoherent — which is exactly how it looked. */}
+          {week.isError && !week.data ? (
             <Text style={styles.mutedInset}>Couldn&apos;t load the week.</Text>
           ) : (
             <>
@@ -332,10 +335,19 @@ function summarise(days: DayAvailability[]): string {
   const open = days.filter((d) => d.is_open);
   if (!open.length) return "";
   const booked = open.filter((d) => d.my_booking).length;
-  const full = open.filter((d) => d.available === 0).map((d) => weekdayOf(d.local_date));
+  // A blacked-out day has no desks free, but it is shut rather than full, and saying
+  // "full" sends people looking for a cancellation that will never come (FR-6.5).
+  const closed = open.filter((d) => d.blackout).map((d) => weekdayOf(d.local_date));
+  const full = open
+    .filter((d) => !d.blackout && d.available === 0)
+    .map((d) => weekdayOf(d.local_date));
   const head =
     booked === 0 ? "Nothing booked this week" : `${booked} day${booked === 1 ? "" : "s"} booked`;
-  return `${head}${full.length ? ` · ${full.join(" and ")} full` : ""}`;
+  const notes = [
+    full.length ? `${full.join(" and ")} full` : "",
+    closed.length ? `${closed.join(" and ")} closed` : "",
+  ].filter(Boolean);
+  return [head, ...notes].join(" · ");
 }
 
 function weekdayOf(localDate: string) {

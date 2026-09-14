@@ -5,10 +5,12 @@
  * bookable, so finding out that Wednesday was full took a tap, a load, and a refusal.
  * The availability was already on the wire — it was simply never drawn.
  *
- * Three states, and they are distinguishable without colour: open (a bar showing the
- * free proportion), full (a bar at zero with a struck label), and closed (no bar at
- * all, dimmed). "Closed" and "full" must never look the same — one is the office being
- * shut, the other is everyone else having got there first.
+ * Four states, distinguishable without colour: open (a bar showing the free
+ * proportion), full (a bar at zero), closed (no bar at all, dimmed), and blacked out —
+ * an admin has shut the day (FR-6.5), which renders like closed because nothing can be
+ * booked, and carries its reason in the accessibility label. "Closed" and "full" must
+ * never look the same: one is the office being shut, the other is everyone else having
+ * got there first.
  */
 
 import { Pressable, ScrollView, Text, View } from "react-native";
@@ -45,23 +47,28 @@ export function WeekStrip({ days, value, today, onChange }: Props) {
       {days.map((d) => {
         const { weekday, day } = parts(d.local_date);
         const selected = d.local_date === value;
-        const full = d.is_open && d.available === 0;
+        // A blacked-out day is shut, not full. Rendering it as full would send people
+        // to a plan that refuses every desk on it.
+        const shut = !d.is_open || d.blackout === true;
+        const full = !shut && d.available === 0;
         const free = d.total > 0 ? d.available / d.total : 0;
 
-        const spoken = !d.is_open
-          ? "closed"
-          : full
-            ? "full"
-            : `${d.available} of ${d.total} free`;
+        const spoken = d.blackout
+          ? `closed${d.blackout_reason ? `, ${d.blackout_reason}` : ""}`
+          : !d.is_open
+            ? "closed"
+            : full
+              ? "full"
+              : `${d.available} of ${d.total} free`;
 
         return (
           <Pressable
             key={d.local_date}
             onPress={() => onChange(d.local_date)}
-            disabled={!d.is_open}
-            style={[styles.cell, selected && styles.cellSelected, !d.is_open && styles.cellClosed]}
+            disabled={shut}
+            style={[styles.cell, selected && styles.cellSelected, shut && styles.cellClosed]}
             accessibilityRole="button"
-            accessibilityState={{ selected, disabled: !d.is_open }}
+            accessibilityState={{ selected, disabled: shut }}
             accessibilityLabel={`${d.local_date === today ? "Today, " : ""}${weekday} ${day}, ${spoken}`}
           >
             <Text style={[styles.weekday, selected && styles.onSelected]}>
@@ -69,7 +76,7 @@ export function WeekStrip({ days, value, today, onChange }: Props) {
             </Text>
             <Text style={[styles.day, selected && styles.onSelected]}>{day}</Text>
 
-            {d.is_open ? (
+            {!shut ? (
               <View style={[styles.bar, selected && styles.barSelected]}>
                 <View
                   style={[

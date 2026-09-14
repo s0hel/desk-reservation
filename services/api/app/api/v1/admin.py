@@ -13,12 +13,12 @@ editor that saves on every drag and has no undo.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Query, UploadFile
-from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import func, select
+from fastapi import APIRouter, Depends, File, Query, Response, UploadFile
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_user, db, require_role
@@ -26,9 +26,20 @@ from app.core.config import get_settings
 from app.core.errors import NotFound
 from app.core.ids import uuid7
 from app.core.security import sign_asset_url
-from app.models import Floor, FloorPlanAsset, Group, Resource, Site, User
+from app.models import (
+    Blackout,
+    Booking,
+    Floor,
+    FloorPlanAsset,
+    Group,
+    Resource,
+    Site,
+    User,
+)
+from app.models.booking import ACTIVE_STATUSES
 from app.services import layout as layout_service
 from app.services import plan_assets
+from app.services.booking import cancel_booking
 from app.services.storage import get_store
 
 router = APIRouter(
@@ -382,3 +393,164 @@ async def taken_codes(
     if prefix:
         stmt = stmt.where(Resource.code.startswith(prefix))
     return sorted(await session.scalars(stmt))
+
+
+class BlackoutIn(BaseModel):
+    """A holiday or a closure (FR-6.5).
+
+    Scope narrows: no site means the whole organization, a site with no floor means the
+    whole site, and both means one floor.
+    """
+
+    site_id: uuid.UUID | None = None
+    floor_id: uuid.UUID | None = None
+    starts_on: date
+    ends_on: date
+    reason: str | None = Field(default=None, max_length=500)
+    #: Whether to cancel the bookings this closure invalidates. Off by default: an admin
+    #: pencilling in next year's holidays should not silently cancel anything, and the
+    #: preview below exists so the decision is made with the number in view.
+    cancels_bookings: bool = False
+
+    @model_validator(mode="after")
+    def _ends_after_it_starts(self) -> BlackoutIn:
+        # A field rule, so it rides the existing RequestValidationError handler and
+        # arrives as the same problem+json shape as any other 422. Inventing a policy
+        # reason code for it would put an admin-only validation error into the mirrored
+        # set the mobile client renders from.
+        if self.ends_on < self.starts_on:
+            raise ValueError("ends_on must not be before starts_on")
+        return self
+
+
+class BlackoutOut(BaseModel):
+    id: uuid.UUID
+    site_id: uuid.UUID | None
+    floor_id: uuid.UUID | None
+    starts_on: date
+    ends_on: date
+    reason: str | None
+    cancels_bookings: bool
+    #: Active bookings the closure covers. Present on the preview and on the created
+    #: row, so "3 bookings cancelled" can be reported rather than merely done.
+    affected_bookings: int = 0
+
+
+def _blackout_out(row: Blackout, affected: int = 0) -> BlackoutOut:
+    return BlackoutOut(
+        id=row.id,
+        site_id=row.site_id,
+        floor_id=row.floor_id,
+        starts_on=row.starts_on,
+        ends_on=row.ends_on,
+        reason=row.reason,
+        cancels_bookings=row.cancels_bookings,
+        affected_bookings=affected,
+    )
+
+
+def _covered_bookings(body: BlackoutIn):
+    """Active bookings a closure would invalidate."""
+    stmt = (
+        select(Booking)
+        .join(Resource, Resource.id == Booking.resource_id)
+        .where(
+            Booking.local_date >= body.starts_on,
+            Booking.local_date <= body.ends_on,
+            Booking.status.in_(ACTIVE_STATUSES),
+        )
+    )
+    if body.floor_id is not None:
+        stmt = stmt.where(Resource.floor_id == body.floor_id)
+    elif body.site_id is not None:
+        stmt = stmt.where(Resource.site_id == body.site_id)
+    return stmt
+
+
+@router.get("/blackouts", response_model=list[BlackoutOut])
+async def list_blackouts(
+    session: Annotated[AsyncSession, Depends(db)],
+    site_id: Annotated[uuid.UUID | None, Query(alias="site")] = None,
+) -> list[BlackoutOut]:
+    stmt = select(Blackout).order_by(Blackout.starts_on)
+    if site_id is not None:
+        stmt = stmt.where(or_(Blackout.site_id.is_(None), Blackout.site_id == site_id))
+    return [_blackout_out(b) for b in await session.scalars(stmt)]
+
+
+@router.post("/blackouts/preview", response_model=BlackoutOut)
+async def preview_blackout(
+    body: BlackoutIn,
+    session: Annotated[AsyncSession, Depends(db)],
+) -> BlackoutOut:
+    """What creating this closure would break, before creating it.
+
+    The same shape as the floor-plan publish preflight, and for the same reason: an
+    admin must look at the number of people who lose a desk before they cause it.
+    """
+    covered = list(await session.scalars(_covered_bookings(body)))
+    return BlackoutOut(
+        id=uuid7(),
+        site_id=body.site_id,
+        floor_id=body.floor_id,
+        starts_on=body.starts_on,
+        ends_on=body.ends_on,
+        reason=body.reason,
+        cancels_bookings=body.cancels_bookings,
+        affected_bookings=len(covered),
+    )
+
+
+@router.post("/blackouts", response_model=BlackoutOut, status_code=201)
+async def create_blackout(
+    body: BlackoutIn,
+    session: Annotated[AsyncSession, Depends(db)],
+    user: Annotated[User, Depends(current_user)],
+) -> BlackoutOut:
+    """Close a floor, a site, or the organization for a range of days (FR-6.5).
+
+    Cancellation goes through `cancel_booking`, not a bulk UPDATE, so every affected
+    person gets the same outbox notification they would from any other cancellation —
+    "blocks booking and cancels existing bookings *with notice*" is the requirement, and
+    the notice is the part a status update would quietly skip.
+    """
+    blackout = Blackout(
+        id=uuid7(),
+        organization_id=user.organization_id,
+        site_id=body.site_id,
+        floor_id=body.floor_id,
+        starts_on=body.starts_on,
+        ends_on=body.ends_on,
+        reason=body.reason,
+        cancels_bookings=body.cancels_bookings,
+    )
+    session.add(blackout)
+    await session.flush()
+
+    cancelled = 0
+    if body.cancels_bookings:
+        for booking in list(await session.scalars(_covered_bookings(body))):
+            await cancel_booking(
+                session,
+                actor=user,
+                booking_id=booking.id,
+                reason=body.reason or "the office is closed that day",
+            )
+            cancelled += 1
+
+    await session.commit()
+    return _blackout_out(blackout, affected=cancelled)
+
+
+@router.delete("/blackouts/{blackout_id}", status_code=204)
+async def delete_blackout(
+    blackout_id: uuid.UUID,
+    session: Annotated[AsyncSession, Depends(db)],
+) -> Response:
+    """Reopen the days. Bookings cancelled when it was created are NOT restored — they
+    were cancelled, the people were told, and the desks may well be gone."""
+    row = await session.scalar(select(Blackout).where(Blackout.id == blackout_id))
+    if row is not None:
+        await session.delete(row)
+        await session.commit()
+    return Response(status_code=204)

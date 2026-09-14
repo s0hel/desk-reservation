@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any
 
-from app.models import Booking, Resource, Site, User
+from app.models import Blackout, Booking, Resource, Site, User, ZonePermission
 
 #: Fallback configuration when a tenant has no policy row for a rule. Kept here rather
 #: than in the database so a fresh organization behaves sensibly with zero setup.
@@ -70,6 +70,13 @@ class BookingContext:
     site_bookings_today: int
     policies: PolicySet
     now: datetime
+    #: Groups the SUBJECT belongs to. The subject, not the actor: a team lead booking on
+    #: behalf of someone else must be judged by that person's access, not their own.
+    subject_group_ids: frozenset[uuid.UUID] = frozenset()
+    #: Permissions on the resource's zone. Empty means an open zone (FR-6.4).
+    zone_permissions: tuple[ZonePermission, ...] = ()
+    #: Blackouts overlapping this date for this site, floor, or the whole org (FR-6.5).
+    blackouts: tuple[Blackout, ...] = ()
 
     @property
     def is_delegated(self) -> bool:

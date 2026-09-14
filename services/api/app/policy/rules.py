@@ -13,6 +13,7 @@ from typing import Any, Literal, NamedTuple, Protocol
 from app.core.time import materialize_opening_hours
 from app.policy import codes
 from app.policy.context import BookingContext
+from app.services.restrictions import blackout_violation, zone_violation
 
 Severity = Literal["block", "warn"]
 
@@ -173,9 +174,57 @@ class DelegationAllowed:
 
 #: The six P0 rules for Phase 1 (PRD FR-6.1–6.3, 6.9 plus opening hours and resource state).
 #: DelegationAllowed is constructed per-request because it depends on the actor's roles.
+class ZoneAccess:
+    """FR-6.4. A zone may be held for named groups, or released to everyone after a
+    wall-clock cut-off.
+
+    The decision itself lives in `services/restrictions.py` because the availability
+    query has to reach the same answer. Two implementations of "may this person book
+    here" is how a desk comes to render green and then refuse.
+    """
+
+    id = "zone_access"
+
+    def evaluate(self, ctx: BookingContext) -> RuleResult:
+        if ctx.resource is None or ctx.resource.zone_id is None:
+            return ALLOW
+        violation = zone_violation(
+            ctx.zone_permissions,
+            member_of=ctx.subject_group_ids,
+            site_timezone=ctx.site.timezone,
+            local_date=ctx.local_date,
+            now=ctx.now,
+        )
+        if violation is None:
+            return ALLOW
+        return RuleResult(
+            allow=False, code=violation.code, params=violation.params, severity="block"
+        )
+
+
+class BlackoutWindow:
+    """FR-6.5. Holidays and maintenance close a site, a floor, or the whole org."""
+
+    id = "blackout"
+
+    def evaluate(self, ctx: BookingContext) -> RuleResult:
+        violation = blackout_violation(
+            ctx.blackouts,
+            local_date=ctx.local_date,
+            floor_id=ctx.resource.floor_id if ctx.resource else None,
+        )
+        if violation is None:
+            return ALLOW
+        return RuleResult(
+            allow=False, code=violation.code, params=violation.params, severity="block"
+        )
+
+
 P0_RULES: tuple[Rule, ...] = (
     ResourceBookable(),
     OpeningHours(),
+    BlackoutWindow(),
+    ZoneAccess(),
     BookingHorizon(),
     MaxConcurrentBookings(),
     SiteCapacityCap(),

@@ -553,6 +553,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/blackouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Blackouts */
+        get: operations["list_blackouts_v1_admin_blackouts_get"];
+        put?: never;
+        /**
+         * Create Blackout
+         * @description Close a floor, a site, or the organization for a range of days (FR-6.5).
+         *
+         *     Cancellation goes through `cancel_booking`, not a bulk UPDATE, so every affected
+         *     person gets the same outbox notification they would from any other cancellation —
+         *     "blocks booking and cancels existing bookings *with notice*" is the requirement, and
+         *     the notice is the part a status update would quietly skip.
+         */
+        post: operations["create_blackout_v1_admin_blackouts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/blackouts/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Blackout
+         * @description What creating this closure would break, before creating it.
+         *
+         *     The same shape as the floor-plan publish preflight, and for the same reason: an
+         *     admin must look at the number of people who lose a desk before they cause it.
+         */
+        post: operations["preview_blackout_v1_admin_blackouts_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/blackouts/{blackout_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Blackout
+         * @description Reopen the days. Bookings cancelled when it was created are NOT restored — they
+         *     were cancelled, the people were told, and the desks may well be gone.
+         */
+        delete: operations["delete_blackout_v1_admin_blackouts__blackout_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -613,6 +683,67 @@ export interface components {
             /** Zones */
             zones: components["schemas"]["ZoneOut"][];
             plan?: components["schemas"]["app__api__v1__bookings__PlanOut"] | null;
+        };
+        /**
+         * BlackoutIn
+         * @description A holiday or a closure (FR-6.5).
+         *
+         *     Scope narrows: no site means the whole organization, a site with no floor means the
+         *     whole site, and both means one floor.
+         */
+        BlackoutIn: {
+            /** Site Id */
+            site_id?: string | null;
+            /** Floor Id */
+            floor_id?: string | null;
+            /**
+             * Starts On
+             * Format: date
+             */
+            starts_on: string;
+            /**
+             * Ends On
+             * Format: date
+             */
+            ends_on: string;
+            /** Reason */
+            reason?: string | null;
+            /**
+             * Cancels Bookings
+             * @default false
+             */
+            cancels_bookings: boolean;
+        };
+        /** BlackoutOut */
+        BlackoutOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Site Id */
+            site_id: string | null;
+            /** Floor Id */
+            floor_id: string | null;
+            /**
+             * Starts On
+             * Format: date
+             */
+            starts_on: string;
+            /**
+             * Ends On
+             * Format: date
+             */
+            ends_on: string;
+            /** Reason */
+            reason: string | null;
+            /** Cancels Bookings */
+            cancels_bookings: boolean;
+            /**
+             * Affected Bookings
+             * @default 0
+             */
+            affected_bookings: number;
         };
         /** Body_upload_plan_v1_admin_floors__floor_id__plan_post */
         Body_upload_plan_v1_admin_floors__floor_id__plan_post: {
@@ -722,6 +853,13 @@ export interface components {
             total: number;
             /** Available */
             available: number;
+            /**
+             * Blackout
+             * @default false
+             */
+            blackout: boolean;
+            /** Blackout Reason */
+            blackout_reason?: string | null;
             my_booking?: components["schemas"]["DayBookingOut"] | null;
         };
         /**
@@ -1102,6 +1240,7 @@ export interface components {
             out_of_service_reason: string | null;
             /** Occupied By Me */
             occupied_by_me: boolean;
+            restriction?: components["schemas"]["ViolationOut"] | null;
         };
         /** ResourceOut */
         ResourceOut: {
@@ -1238,6 +1377,15 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** ViolationOut */
+        ViolationOut: {
+            /** Code */
+            code: string;
+            /** Params */
+            params: {
+                [key: string]: unknown;
+            };
         };
         /** WeekAvailabilityOut */
         WeekAvailabilityOut: {
@@ -2375,6 +2523,132 @@ export interface operations {
                 content: {
                     "application/json": string[];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_blackouts_v1_admin_blackouts_get: {
+        parameters: {
+            query?: {
+                site?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlackoutOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_blackout_v1_admin_blackouts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlackoutIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlackoutOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_blackout_v1_admin_blackouts_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlackoutIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlackoutOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_blackout_v1_admin_blackouts__blackout_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                blackout_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

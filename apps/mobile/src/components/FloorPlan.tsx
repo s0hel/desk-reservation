@@ -59,13 +59,17 @@ type Props = {
 const MIN_SCALE = 0.6;
 const MAX_SCALE = 6;
 
-function stateOf(r: ResourceAvailability): "free" | "taken" | "yours" | "unavailable" {
+type NodeState = "free" | "taken" | "yours" | "restricted" | "unavailable";
+
+function stateOf(r: ResourceAvailability): NodeState {
   if (r.occupied_by_me) return "yours";
+  // Nobody has this desk; it belongs to a zone held for another team (FR-6.4).
+  // Drawing it as "taken" would be a small lie in place of the large one that used to
+  // be here, which was drawing it as free and then refusing the booking.
+  if (r.restriction) return "restricted";
   if (!r.bookable) return "unavailable";
   return r.available ? "free" : "taken";
 }
-
-type NodeState = "free" | "taken" | "yours" | "unavailable";
 
 /**
  * Every state is a different colour AND a different shape: filled, faded, ringed,
@@ -78,6 +82,11 @@ function paint(color: Palette, state: NodeState) {
       return { fill: color.state.free, opacity: 1, stroke: undefined, ring: false };
     case "taken":
       return { fill: color.state.taken, opacity: 0.5, stroke: undefined, ring: false };
+    case "restricted":
+      // Filled, in the zone hue. Free-vs-closed is the pair that must survive colour
+      // blindness and it keeps its filled/hollow distinction; restricted differs from
+      // taken by hue *and* by the sheet naming it on tap, which is enough.
+      return { fill: color.state.zone, opacity: 0.55, stroke: undefined, ring: false };
     case "yours":
       return { fill: color.state.yours, opacity: 1, stroke: undefined, ring: true };
     case "unavailable":

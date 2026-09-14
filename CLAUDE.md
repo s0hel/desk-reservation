@@ -114,6 +114,27 @@ rooms cheap to build alongside desks. The one obligation that doesn't go away: r
 made unbookable in the customer's own directory/calendar system, or they'll be double-booked
 from Outlook/Google Calendar and this app cannot detect it.
 
+**A rule that refuses a booking must also be visible to the availability query.** Zone
+permissions (FR-6.4) and blackouts (FR-6.5) were modelled in Phase 0 and authored by the
+floor plan editor, and for a long time bound nothing at all: an admin could mark a zone
+exclusive to one team, publish it, and every employee could still book those desks. A
+control that is written and never read is worse than none, because it is believed.
+
+Both decisions now live as **pure functions** in `app/services/restrictions.py`, and the
+two callers that matter go through them: `policy/rules.py::ZoneAccess` / `BlackoutWindow`
+at booking time, and `api/v1/bookings.py::floor_availability` when colouring the plan. Do
+not give either caller its own copy — the failure mode is a desk that renders green and
+then refuses, which is the same bug wearing different clothes. `preferred` is a ranking
+hint for auto-assign, deliberately *not* an access mode; the `open_after` cut-off is
+wall-clock on the booked date at the site, so it goes through `local_time_to_utc` rather
+than comparing naive times (which looks right all winter and releases zones an hour early
+all summer).
+
+Blackouts cancel through `cancel_booking`, never a bulk `UPDATE`: FR-6.5 says "cancels
+existing bookings *with notice*", and the notice is the half a status update silently
+skips. `POST /v1/admin/blackouts/preview` reports what a closure would break before it
+breaks it, the same shape as the floor-plan publish preflight and for the same reason.
+
 **Presence visibility is a query condition, never a serializer step.** Every query that
 can name a colleague carries `app/services/presence.py::visible_to(viewer)`. A user with
 `presence_visibility='nobody'` is *absent from the result set* — not returned with a

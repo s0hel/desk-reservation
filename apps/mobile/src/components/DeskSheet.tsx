@@ -12,6 +12,7 @@ import { Button } from "@/components/Button";
 import { Sheet } from "@/components/Sheet";
 import type { ResourceAvailability } from "@/lib/api";
 import { formatDate } from "@/lib/dates";
+import { describe as describeViolation } from "@/lib/messages";
 import { at, radius, spacing, type, useThemedStyles, type Theme } from "@/lib/theme";
 
 type Props = {
@@ -48,18 +49,23 @@ export function DeskSheet({
   // Nothing selected: render nothing rather than an invisible modal.
   if (!resource) return null;
 
+  // A zone held for another team is not "taken" — nobody has it. Saying so would be a
+  // small lie in place of the large one this release removed (FR-6.4).
   const state = resource.occupied_by_me
     ? "yours"
-    : !resource.bookable
-      ? "unavailable"
-      : resource.available
-        ? "free"
-        : "taken";
+    : resource.restriction
+      ? "restricted"
+      : !resource.bookable
+        ? "unavailable"
+        : resource.available
+          ? "free"
+          : "taken";
 
   const label = {
     free: "Free",
     taken: "Taken",
     yours: "Yours",
+    restricted: "Reserved",
     unavailable: resource.out_of_service_reason || "Out of service",
   }[state];
 
@@ -104,11 +110,13 @@ export function DeskSheet({
         <Text style={styles.why}>
           {state === "yours"
             ? `This is your desk on ${formatDate(localDate)}.`
-            : state === "taken"
-              ? "Someone else has this for the whole day."
-              : resource.out_of_service_reason
-                ? `Out of service: ${resource.out_of_service_reason}`
-                : "This desk is out of service."}
+            : state === "restricted" && resource.restriction
+              ? describeViolation({ ...resource.restriction, severity: "block" })
+              : state === "taken"
+                ? "Someone else has this for the whole day."
+                : resource.out_of_service_reason
+                  ? `Out of service: ${resource.out_of_service_reason}`
+                  : "This desk is out of service."}
         </Text>
       )}
 
@@ -131,11 +139,13 @@ const makeStyles = (t: Theme) => ({
   pill_free: { backgroundColor: t.color.surfaceAlt },
   pill_taken: { backgroundColor: t.color.surfaceAlt },
   pill_yours: { backgroundColor: t.color.accentSoft },
+  pill_restricted: { backgroundColor: t.color.surfaceAlt },
   pill_unavailable: { backgroundColor: t.color.surfaceAlt },
   pillText: { ...at(type.label, 10) },
   pillText_free: { color: t.color.state.free },
   pillText_taken: { color: t.color.muted },
   pillText_yours: { color: t.color.accentText },
+  pillText_restricted: { color: t.color.state.zone },
   pillText_unavailable: { color: t.color.state.closed },
   chips: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: spacing(0.75) },
   chip: {

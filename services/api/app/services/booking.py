@@ -19,11 +19,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import NotFound, PolicyViolation, ResourceUnavailable, Violation
 from app.core.ids import uuid7
 from app.core.time import local_time_to_utc, materialize_opening_hours, now_utc
-from app.models import Booking, BookingStatus, Outbox, Policy, Resource, Site, User
+from app.models import (
+    Booking,
+    BookingStatus,
+    Outbox,
+    Policy,
+    Resource,
+    Site,
+    User,
+    ZonePermission,
+)
 from app.policy import codes
 from app.policy.context import BookingContext, PolicySet
 from app.policy.engine import blocking, evaluate
 from app.policy.rules import P0_RULES, DelegationAllowed
+from app.services import restrictions
 
 #: Local wall-clock boundary between the morning and afternoon half-day slots.
 HALF_DAY_BOUNDARY = time(13, 0)
@@ -106,6 +116,18 @@ async def _load_context(
         {"site": site.id, "d": local_date},
     )
     policies = await session.scalars(select(Policy).where(Policy.enabled.is_(True)))
+
+    # Zone access is judged by the SUBJECT's groups, not the actor's: a team lead
+    # booking for someone else must not lend them their own access (FR-2.10, FR-6.4).
+    subject_groups = await restrictions.group_ids_for(session, subject.id)
+    zone_permissions: tuple[ZonePermission, ...] = ()
+    if resource.zone_id is not None:
+        by_zone = await restrictions.zone_permissions_for(session, [resource.zone_id])
+        zone_permissions = tuple(by_zone.get(resource.zone_id, ()))
+    blackouts = tuple(
+        await restrictions.blackouts_for(session, site_id=site.id, start=local_date, end=local_date)
+    )
+
     return BookingContext(
         organization_id=subject.organization_id,
         actor=actor,
@@ -119,6 +141,9 @@ async def _load_context(
         site_bookings_today=int(site_count or 0),
         policies=PolicySet.resolve(list(policies)),
         now=now_utc(),
+        subject_group_ids=subject_groups,
+        zone_permissions=zone_permissions,
+        blackouts=blackouts,
     )
 
 

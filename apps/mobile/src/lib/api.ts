@@ -44,6 +44,12 @@ export type ResourceAvailability = {
   capacity: number; position: { x?: number; y?: number; rotation?: number };
   attributes: Record<string, unknown>; zone_id: string | null;
   available: boolean; bookable: boolean;
+  /**
+   * Why THIS viewer may not book it — a zone held for another team (FR-6.4). Distinct
+   * from `bookable`, which is a fact about the desk. Rendered from the code like any
+   * other refusal.
+   */
+  restriction: { code: string; params: Record<string, unknown> } | null;
   out_of_service_reason: string | null; occupied_by_me: boolean;
 };
 
@@ -78,6 +84,13 @@ export type DayAvailability = {
   is_open: boolean;
   total: number;
   available: number;
+  /**
+   * An admin has closed the day (FR-6.5). Not the same as the office being shut for the
+   * weekend. The flag is separate from the reason because the reason is optional: a
+   * closure with no reason must still read as closed.
+   */
+  blackout: boolean;
+  blackout_reason: string | null;
   my_booking: {
     id: string;
     resource_code: string | null;

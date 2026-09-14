@@ -47,6 +47,11 @@ def make_resource(**kw):
         bookable=True,
         status="active",
         out_of_service_reason=None,
+        # Real columns the stand-in was missing. ZoneAccess and BlackoutWindow read
+        # them, and a fake that is narrower than the model hides rules rather than
+        # testing them.
+        floor_id=uuid.uuid4(),
+        zone_id=None,
     )
     return SimpleNamespace(**{**defaults, **kw})
 

@@ -27,6 +27,12 @@ const MESSAGES: Record<string, (p: Params) => string> = {
     p.closed ? `The office is closed on ${day(p.date)}.` : `That time is outside opening hours.`,
   "policy.delegation_not_permitted": () =>
     "You cannot book on behalf of someone else.",
+  "policy.zone_not_permitted": () =>
+    "That area is reserved for another team.",
+  "policy.zone_not_yet_open": (p) =>
+    `That area opens to everyone at ${p.opens_at}.`,
+  "policy.blackout": (p) =>
+    p.reason ? `The office is closed on ${day(p.date)} — ${p.reason}.` : `The office is closed on ${day(p.date)}.`,
   "resource.unavailable": (p) =>
     `${p.resource_code ?? "That desk"} was taken while you were booking.`,
   "resource.out_of_service": (p) =>
@@ -104,8 +110,15 @@ const SHAPES: Record<string, Shape> = {
     fix: () => "Pick a desk outside it, or ask an admin for access.",
   },
   "policy.blackout": {
-    headline: (p) => `${day(p.date)} is blocked`,
+    headline: (p) => `${day(p.date)} is closed`,
+    // The admin's own words, quoted. The sentence around them still comes from us.
+    detail: (p) => (p.reason ? String(p.reason) : ""),
     otherDays: true,
+  },
+  "policy.zone_not_yet_open": {
+    headline: () => "That area isn't open yet",
+    detail: (p) => `It's held for another team until ${p.opens_at}.`,
+    fix: () => "Pick a desk elsewhere, or come back later.",
   },
   "resource.unavailable": {
     headline: () => "Just taken",

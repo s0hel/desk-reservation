@@ -1742,6 +1742,179 @@
           }
         }
       }
+    },
+    "/v1/admin/blackouts": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List Blackouts",
+        "operationId": "list_blackouts_v1_admin_blackouts_get",
+        "parameters": [
+          {
+            "name": "site",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Site"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BlackoutOut"
+                  },
+                  "title": "Response List Blackouts V1 Admin Blackouts Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Create Blackout",
+        "description": "Close a floor, a site, or the organization for a range of days (FR-6.5).\n\nCancellation goes through `cancel_booking`, not a bulk UPDATE, so every affected\nperson gets the same outbox notification they would from any other cancellation \u2014\n\"blocks booking and cancels existing bookings *with notice*\" is the requirement, and\nthe notice is the part a status update would quietly skip.",
+        "operationId": "create_blackout_v1_admin_blackouts_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BlackoutIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlackoutOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/blackouts/preview": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Preview Blackout",
+        "description": "What creating this closure would break, before creating it.\n\nThe same shape as the floor-plan publish preflight, and for the same reason: an\nadmin must look at the number of people who lose a desk before they cause it.",
+        "operationId": "preview_blackout_v1_admin_blackouts_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BlackoutIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlackoutOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/blackouts/{blackout_id}": {
+      "delete": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Delete Blackout",
+        "description": "Reopen the days. Bookings cancelled when it was created are NOT restored \u2014 they\nwere cancelled, the people were told, and the desks may well be gone.",
+        "operationId": "delete_blackout_v1_admin_blackouts__blackout_id__delete",
+        "parameters": [
+          {
+            "name": "blackout_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Blackout Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1866,6 +2039,142 @@
           "zones"
         ],
         "title": "AvailabilityOut"
+      },
+      "BlackoutIn": {
+        "properties": {
+          "site_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site Id"
+          },
+          "floor_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Floor Id"
+          },
+          "starts_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Starts On"
+          },
+          "ends_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Ends On"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "cancels_bookings": {
+            "type": "boolean",
+            "title": "Cancels Bookings",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "starts_on",
+          "ends_on"
+        ],
+        "title": "BlackoutIn",
+        "description": "A holiday or a closure (FR-6.5).\n\nScope narrows: no site means the whole organization, a site with no floor means the\nwhole site, and both means one floor."
+      },
+      "BlackoutOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "site_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site Id"
+          },
+          "floor_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Floor Id"
+          },
+          "starts_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Starts On"
+          },
+          "ends_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Ends On"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "cancels_bookings": {
+            "type": "boolean",
+            "title": "Cancels Bookings"
+          },
+          "affected_bookings": {
+            "type": "integer",
+            "title": "Affected Bookings",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "site_id",
+          "floor_id",
+          "starts_on",
+          "ends_on",
+          "reason",
+          "cancels_bookings"
+        ],
+        "title": "BlackoutOut"
       },
       "Body_upload_plan_v1_admin_floors__floor_id__plan_post": {
         "properties": {
@@ -2090,6 +2399,22 @@
           "available": {
             "type": "integer",
             "title": "Available"
+          },
+          "blackout": {
+            "type": "boolean",
+            "title": "Blackout",
+            "default": false
+          },
+          "blackout_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blackout Reason"
           },
           "my_booking": {
             "anyOf": [
@@ -3043,6 +3368,16 @@
           "occupied_by_me": {
             "type": "boolean",
             "title": "Occupied By Me"
+          },
+          "restriction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ViolationOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -3445,6 +3780,25 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "ViolationOut": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "params": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Params"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "params"
+        ],
+        "title": "ViolationOut"
       },
       "WeekAvailabilityOut": {
         "properties": {
