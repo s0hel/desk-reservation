@@ -63,6 +63,7 @@ function RootStack() {
       </Stack.Protected>
       <Stack.Protected guard={!!token}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="pick-floor" />
         <Stack.Screen name="floor/[id]" />
       </Stack.Protected>
     </Stack>

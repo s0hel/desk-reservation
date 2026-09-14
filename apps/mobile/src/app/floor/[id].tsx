@@ -120,7 +120,9 @@ export default function FloorScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: name ?? "Floor", headerBackTitle: "Spaces" }} />
+      {/* "Back", not "Spaces": this screen is reached from the Spaces tab AND from the
+          pick-a-floor step, and naming one of them is wrong half the time. */}
+      <Stack.Screen options={{ title: name ?? "Floor", headerBackTitle: "Back" }} />
       <View style={styles.screen}>
         {view === "plan" ? (
           <View style={styles.stage}>

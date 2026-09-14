@@ -105,7 +105,12 @@ export default function Today() {
               params: { id: floorId, name: floorName, date: week.data?.today ?? "" },
             })
           }
-          onFindDesk={() => router.push("/(tabs)/spaces")}
+          onFindDesk={() =>
+            router.push({
+              pathname: "/pick-floor",
+              params: { date: week.data?.today ?? "" },
+            })
+          }
           onManage={() => today && setOpenDay(today)}
         />
 
@@ -158,6 +163,10 @@ export default function Today() {
         timezone={week.data?.site_timezone ?? null}
         cancelling={cancel.isPending}
         onCancel={(id) => cancel.mutate(id)}
+        onFindDesk={(localDate) => {
+          setOpenDay(null);
+          router.push({ pathname: "/pick-floor", params: { date: localDate } });
+        }}
         onOpenPlan={(floorId, floorName) => {
           const day = openDay?.local_date;
           setOpenDay(null);
@@ -261,13 +270,20 @@ function HeroCard({
   );
 }
 
-/** Everything a day can do, out of the way until it is asked for. */
+/**
+ * Everything a day can do, out of the way until it is asked for.
+ *
+ * Every branch here ends in either an action or a reason there is none. The first
+ * version stated "You have nothing booked on this day" and stopped, which is the same
+ * dead end this sheet was built to replace `Alert.alert` for.
+ */
 function DaySheet({
   day,
   timezone,
   cancelling,
   onCancel,
   onOpenPlan,
+  onFindDesk,
   onClose,
 }: {
   day: DayAvailability | null;
@@ -275,6 +291,7 @@ function DaySheet({
   cancelling: boolean;
   onCancel: (bookingId: string) => void;
   onOpenPlan: (floorId: string, floorName: string) => void;
+  onFindDesk: (localDate: string) => void;
   onClose: () => void;
 }) {
   const styles = useThemedStyles(makeStyles);
@@ -285,9 +302,13 @@ function DaySheet({
       {day ? (
         <>
           <Text style={styles.muted}>
-            {day.is_open
-              ? `${day.available} of ${day.total} desks free`
-              : "The office is closed on this day."}
+            {!day.is_open
+              ? "The office is closed on this day."
+              : day.blackout
+                ? // Shut by an admin, not full. "0 of 144 desks free" would read as
+                  // everyone having got there first (FR-6.5).
+                  `Closed${day.blackout_reason ? ` — ${day.blackout_reason}` : ""}.`
+                : `${day.available} of ${day.total} desks free`}
           </Text>
 
           {booking ? (
@@ -311,8 +332,18 @@ function DaySheet({
                 onPress={() => onCancel(booking.id)}
               />
             </>
-          ) : day.is_open ? (
-            <Text style={styles.muted}>You have nothing booked on this day.</Text>
+          ) : day.is_open && !day.blackout ? (
+            day.available > 0 ? (
+              <Button
+                label="Find a desk"
+                icon="plan"
+                onPress={() => onFindDesk(day.local_date)}
+              />
+            ) : (
+              <Text style={styles.muted}>
+                Every desk is taken. Try another day, or check back — people cancel.
+              </Text>
+            )
           ) : null}
         </>
       ) : null}
