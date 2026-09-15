@@ -52,8 +52,78 @@ custom native configuration the camera, push and geofence work in Phase 2 will r
 ```bash
 cd apps/mobile
 npx expo run:ios      # requires full Xcode, not just Command Line Tools
-npx expo run:android
+npx expo run:android  # requires the Android SDK and a JDK
 ```
+
+### Android without an Android SDK
+
+There is no separate Android app — it is the same Expo project, and `android` is already a
+first-class target in `app.json` and in CI's bundle job. What Android needs that iOS does not
+is somewhere to build, and [EAS Build](https://docs.expo.dev/build/introduction/) does it in
+the cloud, so no local SDK, Android Studio or emulator is involved (TDD §13.5).
+
+First time only, with an Expo account:
+
+```bash
+cd apps/mobile
+npx eas-cli login
+npx eas-cli init          # if it declines to write to a dynamic config, put the id it prints
+                      # into app.json under "extra": { "eas": { "projectId": "…" } } —
+                      # app.config.ts carries app.json through unchanged
+```
+
+The API address is inlined into the bundle **at build time**, and `.env` is gitignored so the
+builder never sees it. Give each profile its own, or the build fails and tells you so:
+
+```bash
+npx eas-cli env:create --environment preview \
+  --name EXPO_PUBLIC_API_BASE_URL --value "http://$(ipconfig getifaddr en0):8000" \
+  --visibility plaintext
+```
+
+Then:
+
+```bash
+make build-android    # eas build --platform android --profile preview
+```
+
+`preview` produces an APK you can sideload onto a phone or drag onto an emulator;
+`production` produces an AAB for Play. A `development` build is the dev-client equivalent of
+`expo run:android`, and it is what Phase 2's camera, push and geofence work will need.
+
+Two Android-specific things the build handles for you, both of which fail silently otherwise:
+Android refuses cleartext HTTP in release builds, so `app.config.ts` grants
+`usesCleartextTraffic` exactly when the configured API is itself `http://` — a production
+build against `https` never carries it. And on an **emulator** the host is `10.0.2.2`, not
+`localhost`; the LAN address works there too, so prefer it everywhere.
+
+### Android locally, on an emulator
+
+For a dev loop rather than a distributable artifact. Unlike iOS, nothing blocks this — the
+Android toolchain has no Xcode dependency. One-time setup:
+
+```bash
+brew install --cask android-commandlinetools
+export ANDROID_HOME=/opt/homebrew/share/android-commandlinetools
+export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
+export JAVA_HOME=$(/usr/libexec/java_home -v 17)   # the default JDK here is 22; Gradle wants 17
+
+yes | sdkmanager --licenses
+sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "emulator" \
+           "system-images;android-36;google_apis;arm64-v8a"
+avdmanager create avd -n deskflow_api36 -k "system-images;android-36;google_apis;arm64-v8a" -d pixel_7
+```
+
+API 36 because `minSdkVersion` is pinned to 29 (TDD §13.5) and Expo SDK 57 targets 36. About
+6GB on disk. Then, with `make up && make api` running:
+
+```bash
+emulator -avd deskflow_api36 &
+cd apps/mobile && npx expo run:android     # no --device flag: it wants the AVD name, not emulator-5554
+npx expo start --dev-client                # run:android's Metro dies with the command
+```
+
+First Gradle build is ~4–5 minutes; incrementals are fast.
 
 ## Commands
 
@@ -67,6 +137,7 @@ npx expo run:android
 | `make test-mobile` | jest, `apps/mobile/src/lib` |
 | `make test-e2e` | Maestro flows against the iOS simulator ([details](apps/mobile/.maestro/README.md)) |
 | `make test-db-drop` | remove the test database (recreated on the next run) |
+| `make build-android` | EAS cloud build, `preview` profile — an installable APK, no local SDK |
 | `make lint` | ruff check + format |
 | `pnpm gen:client` | regenerate `packages/api-client` from the OpenAPI schema |
 

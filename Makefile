@@ -1,4 +1,4 @@
-.PHONY: up down db-reset migrate seed api worker test test-mobile test-e2e test-all test-db-drop lint gen-client
+.PHONY: up down db-reset migrate seed api worker test test-mobile test-e2e test-all test-db-drop lint gen-client build-android
 
 up:            ## start postgres, redis, mailpit
 	docker compose up -d --wait
@@ -41,3 +41,6 @@ lint:
 
 gen-client:
 	bash scripts/gen-client.sh
+
+build-android: ## EAS cloud build of the Android APK (TDD §13.5); needs `eas login` once
+	cd apps/mobile && npx eas-cli build --platform android --profile preview

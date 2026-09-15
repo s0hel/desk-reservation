@@ -347,6 +347,76 @@ only makes the project appear under Development servers. Opening `exp://<lan-ip>
 directly works either way. If the phone genuinely cannot reach the Mac (different network,
 or client isolation), use `npx expo start --go --tunnel`.
 
+**Android builds locally and in the cloud; unlike iOS, nothing blocks either.** There is no
+separate Android app — same Expo project, and `android` has always been a declared target in
+`app.json` and in CI's `expo export` job. EAS is the path to a *distributable* artifact
+(`make build-android` → `eas build -p android --profile preview` → APK; TDD §13.5 named the
+three profiles). For a dev loop, `npx expo run:android` works on this machine — verified
+end-to-end: sign-in against the seeded API, the Today screen, and the floor plan with pan
+gestures, on an API 36 emulator. Cold Gradle build 4m27s, 338 tasks.
+
+The toolchain is self-contained — no Xcode coupling, so the Swift-version standoff that
+blocks `expo run:ios` has no Android equivalent. Four things cost time to establish:
+
+- **The SDK came from `brew install --cask android-commandlinetools`**, not the
+  `android-studio` cask. Studio installs its SDK through an interactive GUI wizard, which is
+  unscriptable; `sdkmanager` is not. Root is
+  `/opt/homebrew/share/android-commandlinetools` — export it as `ANDROID_HOME`, and put
+  `$ANDROID_HOME/platform-tools` on `PATH` for `adb`. The IDE is not needed to build.
+- **`JAVA_HOME` must be pinned to 17.** The default `java` here is **22**
+  (`/usr/libexec/java_home` resolves to `jdk-22.jdk`), and Gradle 9.3.1 + AGP want 17. Two
+  17s are installed, so it is one line — `export JAVA_HOME=$(/usr/libexec/java_home -v 17)`
+  — but skipped, it fails deep in Gradle rather than at the door.
+- **The AVD must be API 29 or newer**, because `app.config.ts` pins `minSdkVersion=29`
+  (TDD §13.5's Android 10 floor). Expo SDK 57 compiles and targets 36, so
+  `system-images;android-36;google_apis;arm64-v8a` is the matching pick and runs natively on
+  Apple Silicon. `avdmanager create -d pixel_7` prints a `Could not load devices from
+  …/devices.xml` error and applies the profile anyway — the AVD is fine; the error is noise.
+- **`expo run:android --device` wants the AVD name, not the adb serial.** Passing
+  `emulator-5554` fails with `Could not find device with name` — and *exits 0*, so it reads
+  as a successful build that silently did nothing. With one emulator attached, omit the flag.
+
+`expo run:android` starts Metro as a child, so it dies with the command; run
+`npx expo start --dev-client` separately for a persistent bundler.
+
+`apps/mobile/app.config.ts` exists **only** for what a static config cannot decide, and
+both halves are Android release-build traps that produce a working-looking app:
+
+- Android refuses cleartext HTTP in release builds (API 28+), and Expo sets
+  `usesCleartextTraffic` on the *debug* variant only. Every EAS profile but `development`
+  is a release build, so an APK aimed at `http://<lan-ip>:8000` installs, launches, loads
+  its bundle and then fails every request. The grant therefore follows the address rather
+  than standing open: it is on exactly when `EXPO_PUBLIC_API_BASE_URL` is itself `http://`,
+  so a production build against https never carries it and nobody has to remember to
+  revoke it. Verified by reading the generated `AndroidManifest.xml`, not by inspection.
+- `.env` is gitignored, so an EAS builder never sees it and `lib/api.ts` falls back to
+  `http://localhost:8000` — on a phone, the phone. The config throws on a builder with no
+  `EXPO_PUBLIC_API_BASE_URL` rather than inlining that fallback: the address comes from the
+  profile's `environment` (`eas env:create`), and a named build failure costs minutes where
+  an app that signs in nowhere costs an afternoon. Same failure the LAN-address note above
+  describes, one layer earlier.
+
+`minSdkVersion` is pinned to 29 there too — TDD §13.5 puts the floor at Android 10, and
+Expo's own default is 24.
+
+**Three dependencies are Apple-only, and Android will not tell you.** `expo-glass-effect`
+declares `"platforms": ["apple"]`, so it is simply not autolinked on Android — importing it
+there is a runtime crash, and `expo-symbols` is SF Symbols. Neither is imported anywhere in
+`src/` today (`@expo/ui` does ship Android). Typecheck, lint, Jest and `expo export` all
+pass on a file that imports any of them, so the guard is knowing, not tooling. This is what
+`components/Icon.tsx` already avoids by hand-drawing the set on `react-native-svg`.
+
+**On an emulator, `localhost` is the emulator** — the host is `10.0.2.2`. The LAN address
+works for the emulator as well as a physical device, so prefer it always, which is the same
+conclusion the iOS note reaches by a different road.
+
+**`make test-e2e` is iOS-only.** `scripts/e2e.sh` gates on `xcrun simctl` and Expo Go's iOS
+bundle id, so the Maestro flows cover one platform. Maestro itself drives Android over
+`adb` and the flows are platform-neutral, but the launcher is not — anything shipped on the
+strength of those flows is unverified on Android, and CLAUDE.md's standing warning applies
+with more force there: every UI bug in this app so far has been invisible to typecheck,
+lint and Jest.
+
 **CocoaPods comes from Homebrew** (`brew install cocoapods`). System Ruby is 2.6, too old
 to run a modern CocoaPods.
 
