@@ -1,27 +1,44 @@
-# Launch the app and sign in. Expected env: EXPO_URL, USER_EMAIL.
-appId: host.exp.Exponent
+# Launch the app and sign in. Expected env: APP_ID, LAUNCH_URL, USER_EMAIL.
+#
+# *Which* app is under test differs by platform, and the runner decides rather than this
+# flow: iOS has no dev build (Xcode 16.2 cannot compile SDK 57 — see CLAUDE.md), so the
+# bundle is hosted by Expo Go and LAUNCH_URL is an `exp://` address; Android has a real
+# dev build from `expo run:android`, and LAUNCH_URL is its own `deskflow://` deep link
+# carrying the same Metro address. Keeping both in scripts/e2e.sh leaves everything here
+# platform-agnostic except the one thing that genuinely is not: where the tokens live.
+appId: ${APP_ID}
 ---
-# Auth tokens live in the Keychain (expo-secure-store), which survives both app
-# relaunch and `clearState` — clearing app storage is NOT enough to get back to a
-# signed-out app, and a flow that skips this silently starts mid-session.
 - stopApp
-- clearKeychain
 
-# There is no dev build (Xcode 16.2 cannot compile SDK 57 — see CLAUDE.md), so the
-# app under test is a bundle served by Metro and hosted by Expo Go.
-- openLink: ${EXPO_URL}
+# Auth tokens are in expo-secure-store, which survives app relaunch. On iOS that is the
+# Keychain, which survives `clearState` too — clearing app storage is NOT enough there,
+# and a flow that skips this silently starts mid-session. On Android the same library
+# uses app storage, so `clearState` does clear it and `clearKeychain` does not exist.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - clearKeychain
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - clearState
+
+- openLink: ${LAUNCH_URL}
 - extendedWaitUntil:
     visible: "Sign in with your work email"
     # A cold start downloads the whole bundle from Metro.
-    timeout: 90000
+    timeout: 120000
 
 - tapOn: "Work email address"
-# eraseText drops keystrokes here. The field is a controlled TextInput, so every key
-# round-trips through JS, and XCUITest outruns it: the deletes that get dropped stay in
-# the field and reappear behind whatever is typed next (typing "zzz" over a field that
-# looked empty produced "zzzcom"). The placeholder is not a reliable signal either —
-# it showed while residue was still pending. Retyping until the value actually reads
-# back is the only deterministic form. Synthetic-input artifact, not a product bug.
+# eraseText drops keystrokes. The field is a controlled TextInput, so every key
+# round-trips through JS and the synthetic input outruns it: the deletes that get
+# dropped stay in the field and reappear behind whatever is typed next (typing "zzz"
+# over a field that looked empty produced "zzzcom"). The placeholder is not a reliable
+# signal either — it showed while residue was still pending. Retyping until the value
+# actually reads back is the only deterministic form. Originally found on iOS/XCUITest;
+# kept for both, because the cause is the controlled input rather than the driver.
 - repeat:
     times: 4
     while:
@@ -30,12 +47,21 @@ appId: host.exp.Exponent
       - eraseText: 64
       - eraseText: 64
       - inputText: ${USER_EMAIL}
-- assertVisible: "${USER_EMAIL}"
+# A wait rather than a bare assert, for the same reason the retype loop exists: the
+# value lands a beat after the last keystroke, and asserting on the instant the loop
+# exits fails a field that is about to be correct.
+- extendedWaitUntil:
+    visible: "${USER_EMAIL}"
+    timeout: 15000
 
 # No hideKeyboard: this screen has no dismiss affordance and does not need one —
 # KeyboardAvoidingView lifts the button clear of the keyboard.
 - tapOn: "Continue"
 
+# The home screen, once the week has actually loaded. The site's name comes from the
+# API, so this says the session works rather than merely that a screen rendered.
+# Maestro matches the whole string, so the wildcards are load-bearing: the element
+# reads "TUESDAY · BERLIN HQ".
 - extendedWaitUntil:
-    visible: "Your bookings"
+    visible: ".*BERLIN HQ.*"
     timeout: 30000

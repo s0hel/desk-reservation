@@ -1,21 +1,26 @@
-# Choose the next day the office is open, as both the DateStrip's accessibility label
-# ("Mon 14") and the ISO date the booking cards carry ("2026-09-14").
+# Choose the next day the office is open, as both the day strip's label ("Mon 21") and
+# the ISO date ("2026-09-21"). Expects to be on the floor screen.
 #
 # The seeded site opens Mon-Fri (services/api/app/seed.py:OPENING_HOURS), so on a
-# weekend today's availability is a policy refusal and nothing is bookable. Hard-coding
-# a date would make these flows pass on Tuesday and fail on Saturday, so derive it.
-appId: host.exp.Exponent
+# weekend nothing is bookable and a hard-coded date would pass on Tuesday and fail on
+# Saturday. The seed for the arithmetic is the SITE's current date, read back out of
+# the floor header, not `new Date()` on this machine: the runner's clock is the
+# device's clock, and a day is defined by the site's timezone and nothing else
+# (TDD §5). A Mac an hour behind Berlin would otherwise aim a whole flow at yesterday.
+appId: ${APP_ID}
 ---
+- copyTextFrom: "Change day, currently.*"
 - evalScript: |
     ${
       const NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       const pad = (n) => ('0' + n).slice(-2);
-      const day = new Date();
+      const found = maestro.copiedText.match(/(\d{4})-(\d{2})-(\d{2})/);
+      const day = new Date(Number(found[1]), Number(found[2]) - 1, Number(found[3]));
       while (day.getDay() === 0 || day.getDay() === 6) {
         day.setDate(day.getDate() + 1);
       }
-      // Locale-independent on purpose: toLocaleDateString in Maestro's JS engine is
-      // not guaranteed to agree with the simulator's.
+      // Locale-independent on purpose: the strip renders "Mon 21" from its own
+      // formatter, and Maestro's JS engine is not guaranteed to agree with the device.
       output.dayLabel = NAMES[day.getDay()] + ' ' + day.getDate();
       output.dayIso = day.getFullYear() + '-' + pad(day.getMonth() + 1) + '-' + pad(day.getDate());
     }

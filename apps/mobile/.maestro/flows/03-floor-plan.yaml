@@ -4,9 +4,40 @@
 # process natively on the first tap — no red box, nothing in the Metro log. ANY tap on
 # the plan reproduces it, and a dead app fails every assertion after it.
 #
-# The plan viewport maps 1:1 onto normalized plan space at rest, so a desk seeded at
-# (x, y) is at (x%, y%) of the element (0.08 + col * 0.075, 0.15 + row * 0.16 — see
-# services/api/app/seed.py).
+# The plan does NOT map 1:1 onto the element, and assuming it did is what made the
+# earlier version of this flow tap empty space. It opens at `fitScale`, which on a
+# portrait phone is well above 1 (FloorPlan.tsx: planWidth = min(w, h * ratio),
+# planHeight = planWidth / ratio, fitScale = max(1, h / planHeight)), scaled about the
+# element's centre. So a tap point has to be worked out per device:
+#
+#   X = w/2 + (planX + px * planWidth  - w/2) * fitScale     fx = X / w
+#   Y = h/2 + (planY + py * planHeight - h/2) * fitScale     fy = Y / h
+#
+# with the desk's own (px, py) coming from the seed's formula — `x = 0.08 + col * 0.075`,
+# `y = 0.15 + row * 0.16` on a 5x12 grid (services/api/app/seed.py).
+#
+# Worked for both devices this suite runs on, with the plan 3:2 (plan_width_px 2400,
+# plan_height_px 1600):
+#
+#   Android emulator, element 1080x2054 -> planHeight 720, planY 667, fitScale 2.853
+#     3F-C-06 37.2%,47.0%   3F-C-07 58.6%,47.0%   gap 37.2%,55.0%
+#   iPhone 16 Pro, element 402x740      -> planHeight 268, planY 236, fitScale 2.761
+#     3F-C-06 37.6%,47.0%   3F-C-07 58.3%,47.0%   gap 37.6%,55.0%
+#
+# The two agree to within half a percent because the two screens have nearly the same
+# aspect, so one set of literals serves both — and adjacent columns are ~21% of the
+# width apart, so the margin for error is ~10%, two orders above the disagreement. A
+# device with a markedly different aspect would need its own numbers worked out the same
+# way; that is what the formula above is for.
+#
+# The desk is NAMED rather than discovered, because `point` is the one field Maestro does
+# not interpolate: it is parsed before variables resolve, so a computed
+# "${output.deskPoint}" arrives at the coordinate parser verbatim and dies as
+# NumberFormatException. Anything the plan is tapped by has to be written out here.
+#
+# Floor 3, not Floor 4: Floor 4's zone is `exclusive` to a group the test user is not in,
+# so every seeded desk there answers `policy.zone_not_permitted` and cannot be booked at
+# all. Floor 3 is open to everyone, which is what this flow needs.
 #
 # NOT covered here: hit testing at scale != 1, which is where the other shipped bug
 # lived (the detector was attached to the transformed view, so the inverse transform
@@ -17,81 +48,104 @@
 # src/lib/__tests__/plan.test.ts, which is why the maths lives outside the component.
 #
 # The desk is booked FIRST, from the list, so that a tap on it lands on a desk that is
-# already yours: the resulting alert is titled with the desk's code, which is what makes
+# already yours: the resulting sheet is titled with the desk's code, which is what makes
 # "the hit test resolved to THIS desk and no other" assertable without booking anything.
-appId: host.exp.Exponent
+appId: ${APP_ID}
 name: Tap to book on the floor plan
 tags:
   - smoke
 env:
-  EXPO_URL: exp://127.0.0.1:8081
   USER_EMAIL: priya.raman@example.com
-  # Seeded at (0.08 + col * 0.075, 0.15 + row * 0.16) — see services/api/app/seed.py.
-  # Column 6 of row C is the desk closest to the centre of the plan, which is what
-  # keeps it on screen at 2.5x zoom.
-  DESK: 4F-C-06
+  FLOOR: Floor 3
+  # Row C, column 6 — nearest the centre of the plan, so it stays on screen.
+  # (0.08 + 5 * 0.075, 0.15 + 2 * 0.16) = (0.455, 0.47).
+  DESK: 3F-C-06
+  # Its neighbour one column over: (0.08 + 6 * 0.075, 0.47) = (0.53, 0.47).
+  NEIGHBOUR: 3F-C-07
 ---
-- runFlow: ../subflows/pick-open-day.yaml
 - runFlow: ../subflows/open-app.yaml
+- runFlow:
+    file: ../subflows/open-floor.yaml
+    env:
+      FLOOR: ${FLOOR}
+- runFlow: ../subflows/pick-open-day.yaml
+
+- runFlow: ../subflows/go-back.yaml
 - runFlow:
     file: ../subflows/clear-day.yaml
     env:
-      DAY_ISO: ${output.dayIso}
+      DAY_LABEL: ${output.dayLabel}
+
 - runFlow:
     file: ../subflows/open-floor.yaml
+    env:
+      FLOOR: ${FLOOR}
+- runFlow:
+    file: ../subflows/select-day.yaml
     env:
       DAY_LABEL: ${output.dayLabel}
 
 - tapOn: "List view"
-# Row 30 of 60 — Maestro only matches what is actually on screen.
+# Row 30 of 60 — Maestro only matches what is actually on screen, and a row against the
+# bottom edge is found but never 100% visible, which is this command's default
+# requirement: it would then scroll forever past a desk it can already see.
 - scrollUntilVisible:
     element:
       text: "${DESK}, Available"
     direction: DOWN
-    timeout: 30000
+    timeout: 60000
+    visibilityPercentage: 60
+    centerElement: true
 - tapOn: "${DESK}, Available"
-- assertVisible: "Booked"
-- tapOn: "OK"
+- assertVisible: "Book for .*"
+- tapOn: "Book for .*"
+- extendedWaitUntil:
+    visible: "${DESK}, Booked by you"
+    timeout: 30000
 
 - tapOn: "Floor plan view"
 - extendedWaitUntil:
     visible:
       id: "floor-plan"
     timeout: 30000
-- assertVisible: ".*desks free · pinch to zoom.*"
+# The chip counts what is free on this floor for the day being shown.
+- assertVisible: "[0-9]+ free"
 
-# At rest the viewport is plan space: 4F-C-06 sits at (0.455, 0.47).
+# The desk we just booked, tapped on the plan rather than in the list.
 - tapOn:
     id: "floor-plan"
-    point: "46%,47%"
+    point: "37%,47%"
+# The sheet renders the code as plain text and carries the state in a pill, so
+# "<code>, Booked by you" is the LIST row's label, not this one's.
 - assertVisible: "${DESK}"
-- assertVisible: "This is your booking."
-- tapOn: "OK"
+- assertVisible: "This is your desk on .*"
+- tapOn: "Close"
 
-# A gap between rows C and D. Nothing is within the touch radius, so nothing should
-# open — a hit test that fires here would book whatever it felt like.
+# The gap between rows C and D. Nothing is within the touch radius, so nothing should
+# open — a hit test that fired here would open whatever desk it felt like.
 - tapOn:
     id: "floor-plan"
-    point: "46%,55%"
-- assertNotVisible: "This is your booking."
-- assertVisible: ".*desks free · pinch to zoom.*"
+    point: "37%,55%"
+# No sheet at all: the plan's own labels are short ("C-06"), so the full code being
+# absent is exactly "nothing opened".
+- assertNotVisible: "${DESK}"
+- assertNotVisible: "This is your desk on .*"
+- assertVisible: "[0-9]+ free"
 
-# A different desk entirely: 4F-A-01 at (0.08, 0.15). It is free, so the one-desk-per-day
-# policy refuses it — which is the point. A refusal here proves the tap resolved to some
-# desk OTHER than the one already booked, and a plan whose hit test was stuck on the
-# nearest-to-centre desk would answer "This is your booking." instead. Nothing is
-# mutated: the booking never happens.
+# One column over. This must resolve to the neighbouring desk and not to the one already
+# booked — a hit test stuck on the nearest-to-centre desk, or one applying its inverse
+# transform twice, would answer with our own desk here.
 - tapOn:
     id: "floor-plan"
-    point: "8%,15%"
-- assertVisible: "Can't book that"
-- assertVisible: ".*already have a desk.*"
-- tapOn: "OK"
+    point: "59%,47%"
+- assertVisible: "${NEIGHBOUR}"
+- assertNotVisible: "${DESK}"
+- assertNotVisible: "This is your desk on .*"
+- tapOn: "Close"
 
 # Leave the day as it was found.
-- tapOn: "Spaces"
-- tapOn: "Today, tab.*"
+- runFlow: ../subflows/go-back.yaml
 - runFlow:
     file: ../subflows/clear-day.yaml
     env:
-      DAY_ISO: ${output.dayIso}
+      DAY_LABEL: ${output.dayLabel}

@@ -136,6 +136,7 @@ First Gradle build is ~4–5 minutes; incrementals are fast.
 | `make test` | pytest — includes concurrency and tenant-isolation suites |
 | `make test-mobile` | jest, `apps/mobile/src/lib` |
 | `make test-e2e` | Maestro flows against the iOS simulator ([details](apps/mobile/.maestro/README.md)) |
+| `make test-e2e-android` | the same flows, on an Android emulator or device |
 | `make test-db-drop` | remove the test database (recreated on the next run) |
 | `make build-android` | EAS cloud build, `preview` profile — an installable APK, no local SDK |
 | `make lint` | ruff check + format |

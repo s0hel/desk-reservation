@@ -1,15 +1,35 @@
-# From the tabs, open Floor 4 on an open day. Expected env: DAY_LABEL.
-appId: host.exp.Exponent
+# From the tabs, open a floor. Expected env: APP_ID, FLOOR (e.g. "Floor 3").
+#
+# Leaves you on the floor screen showing whatever day the site considers current —
+# pick-open-day.yaml reads that date back out of the header rather than computing it.
+#
+# Which floor matters for how a flow reads. Floor 4 is seeded busy (84 desks, most of
+# them taken), which is what makes it the right stage for the plan's hit testing and the
+# wrong one for "find any free desk": the free rows are far below the fold and the flow
+# spends its time scrolling rather than testing. Floor 3 is seeded nearly empty.
+appId: ${APP_ID}
 ---
-- tapOn: "Spaces, tab.*"
+# The tab bar is native (react-native-screens), so its accessibility text is the
+# platform's own: UIKit spells it "<title>, tab, <n> of <m>", Android gives the plain
+# title. Maestro matches the whole string, so one optional group covers both.
+# Retried rather than tapped once. A dev build draws LogBox banners across the bottom
+# of the screen, overlapping the top of the tab bar, and a tap that lands in the overlap
+# is swallowed silently — Maestro reports COMPLETED and the app stays put, which reads as
+# a broken selector. Retrying until the destination actually appears costs nothing when
+# the first tap works. The banners come from a real render-phase state update in the app;
+# once that is fixed this can go back to a single tap.
+- repeat:
+    times: 3
+    while:
+      notVisible: "${FLOOR}, see the plan.*"
+    commands:
+      - tapOn: "Spaces(, tab.*)?"
+      - waitForAnimationToEnd:
+          timeout: 3000
 - extendedWaitUntil:
-    visible: "Floor 4, view resources"
+    visible: "${FLOOR}, see the plan.*"
     timeout: 30000
-- tapOn: "Floor 4, view resources"
-
-# The date cell reads "Today, Mon 14" for today and "Mon 14" otherwise, so match on
-# the suffix rather than branching.
+- tapOn: "${FLOOR}, see the plan.*"
 - extendedWaitUntil:
-    visible: ".*${DAY_LABEL}"
+    visible: "Change day, currently.*"
     timeout: 30000
-- tapOn: ".*${DAY_LABEL}"

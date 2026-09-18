@@ -1,0 +1,18 @@
+# On the floor screen, select DAY_LABEL. Expected env: APP_ID, DAY_LABEL.
+#
+# The strip is collapsed on arrival and the header doubles as its toggle, so expanding
+# it is conditional rather than unconditional — tapping the header when the strip is
+# already open closes it again, which is how this reads as "the day was never there".
+appId: ${APP_ID}
+---
+- runFlow:
+    when:
+      notVisible: "(Today, )?${DAY_LABEL},.*"
+    commands:
+      - tapOn: "Change day, currently.*"
+- extendedWaitUntil:
+    # Each cell carries its own availability, so match the date and let the rest vary:
+    # "Fri 18, 143 of 144 free, you have a desk".
+    visible: "(Today, )?${DAY_LABEL},.*"
+    timeout: 15000
+- tapOn: "(Today, )?${DAY_LABEL},.*"

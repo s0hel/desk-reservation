@@ -1,20 +1,35 @@
 # The app signs in, remembers who you are, and signs out again.
-appId: host.exp.Exponent
+appId: ${APP_ID}
 name: Sign in and out
 tags:
   - smoke
 env:
-  EXPO_URL: exp://127.0.0.1:8081
   USER_EMAIL: priya.raman@example.com
 ---
 - runFlow: ../subflows/open-app.yaml
 
-- assertVisible: "Hi Priya"
-- assertVisible: "Berlin HQ"
+# Signed in, with real data behind it: the site comes from the API, and the week
+# summary is computed from the bookings this user actually has.
+- assertVisible: ".*BERLIN HQ.*"
+- assertVisible: "YOUR WEEK"
 
-# The tab bar is native (react-native-screens), so its accessibility text is UIKit's
-# "<title>, tab, <n> of <m>" and not the plain title.
-- tapOn: "Me, tab.*"
+# The tab bar is native (react-native-screens), so its accessibility text is the
+# platform's own: UIKit spells it "<title>, tab, <n> of <m>", Android gives the plain
+# title. Maestro matches the whole string, so one optional group covers both.
+# Retried rather than tapped once. A dev build draws LogBox banners across the bottom
+# of the screen, overlapping the top of the tab bar, and a tap that lands in the overlap
+# is swallowed silently — Maestro reports COMPLETED and the app stays put, which reads as
+# a broken selector. Retrying until the destination actually appears costs nothing when
+# the first tap works. The banners come from a real render-phase state update in the app;
+# once that is fixed this can go back to a single tap.
+- repeat:
+    times: 3
+    while:
+      notVisible: "${USER_EMAIL}"
+    commands:
+      - tapOn: "Me(, tab.*)?"
+      - waitForAnimationToEnd:
+          timeout: 3000
 - assertVisible: "${USER_EMAIL}"
 - assertVisible: "employee"
 

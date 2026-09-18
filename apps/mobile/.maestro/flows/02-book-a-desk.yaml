@@ -3,61 +3,114 @@
 #
 # Booking goes through the list view, where the target is addressable by accessibility
 # label. The plan's own tap path is covered by 03-floor-plan.yaml.
-appId: host.exp.Exponent
+appId: ${APP_ID}
 name: Book and cancel a desk
 tags:
   - smoke
 env:
-  EXPO_URL: exp://127.0.0.1:8081
   USER_EMAIL: priya.raman@example.com
+  # Floor 3 is seeded nearly empty, so a free desk is on screen without scrolling 84
+  # rows. The busy floor is 03-floor-plan.yaml's stage, where being busy is the point.
+  FLOOR: Floor 3
 ---
-- runFlow: ../subflows/pick-open-day.yaml
 - runFlow: ../subflows/open-app.yaml
+
+# The floor screen first, only to read the site's current date out of its header —
+# everything downstream hangs off that rather than off this machine's clock.
+- runFlow:
+    file: ../subflows/open-floor.yaml
+    env:
+      FLOOR: ${FLOOR}
+- runFlow: ../subflows/pick-open-day.yaml
+
+# The floor screen is pushed over the tabs, so the tab bar is out of reach until we
+# come back down.
+- runFlow: ../subflows/go-back.yaml
 - runFlow:
     file: ../subflows/clear-day.yaml
     env:
-      DAY_ISO: ${output.dayIso}
+      DAY_LABEL: ${output.dayLabel}
+
 - runFlow:
     file: ../subflows/open-floor.yaml
+    env:
+      FLOOR: ${FLOOR}
+- runFlow:
+    file: ../subflows/select-day.yaml
     env:
       DAY_LABEL: ${output.dayLabel}
 
 - tapOn: "List view"
-- extendedWaitUntil:
-    visible: ".*desks free"
-    timeout: 30000
+# Maestro only matches what is actually on screen, and even a quiet floor can have its
+# first free desk below the fold once a few rows are taken.
+- scrollUntilVisible:
+    element:
+      text: ".*, Available"
+    direction: DOWN
+    timeout: 40000
+    # A row that lands against the bottom edge is found but never 100% visible, which
+    # is scrollUntilVisible's default requirement — it then scrolls forever past a desk
+    # it can already see. Centre it and accept a partly-shown row.
+    visibilityPercentage: 60
+    centerElement: true
 
-# Take whichever desk is actually free rather than naming one, so a run does not
-# depend on what previous runs left behind — then remember which it was, so every
-# assertion below names that desk instead of "something got booked".
+# Take whichever desk is actually free rather than naming one, so a run does not depend
+# on what previous runs left behind — then remember which it was, so every assertion
+# below names that desk instead of "something got booked".
 - copyTextFrom: ".*, Available"
 - evalScript: ${output.desk = maestro.copiedText.split(',')[0]}
-- tapOn: ".*, Available"
+- tapOn: "${output.desk}, Available"
 
-- assertVisible: "Booked"
-- assertVisible: "${output.desk} on .*"
-- tapOn: "OK"
+# The desk sheet, not an alert: a refusal here has to carry a code, typed params and a
+# way forward, and none of that survives being flattened into an alert string (TDD §11).
+- assertVisible: "Book for .*"
+- tapOn: "Book for .*"
 
-# The list reflects the booking without a manual refresh — the mutation invalidates
-# the availability query.
-- assertVisible: "${output.desk}, Booked by you"
-
-# The Today tab lists every booking from today onward (the client sends `from`, not a
-# single date), so a booking made for a later weekday is cancellable here too.
-# The header's back button, not Maestro's `back`: on iOS that is an edge swipe, and
-# it reports success while doing nothing on this screen. "Spaces" matches the back
-# button only — the tab reads "Spaces, tab, 2 of 3".
-- tapOn: "Spaces"
-- tapOn: "Today, tab.*"
+# The list reflects the booking without a manual refresh — the mutation invalidates the
+# availability query.
 - extendedWaitUntil:
-    visible: "Cancel booking for ${output.desk} on .*"
+    visible: "${output.desk}, Booked by you"
     timeout: 30000
-- tapOn: "Cancel booking for ${output.desk} on .*"
 
-- assertVisible: "Cancel booking?"
-# Anchored: the confirmation's title is "Cancel booking?" and its button is
-# "Cancel booking".
-- tapOn: "^Cancel booking$"
+# Cancel from the day sheet on the Today tab, which is where cancel now lives.
+- runFlow: ../subflows/go-back.yaml
+# Retried rather than tapped once. A dev build draws LogBox banners across the bottom
+# of the screen, overlapping the top of the tab bar, and a tap that lands in the overlap
+# is swallowed silently — Maestro reports COMPLETED and the app stays put, which reads as
+# a broken selector. Retrying until the destination actually appears costs nothing when
+# the first tap works. The banners come from a real render-phase state update in the app;
+# once that is fixed this can go back to a single tap.
+- repeat:
+    times: 3
+    while:
+      notVisible: "YOUR WEEK"
+    commands:
+      - tapOn: "Today(, tab.*)?"
+      - waitForAnimationToEnd:
+          timeout: 3000
 - extendedWaitUntil:
-    notVisible: "Cancel booking for ${output.desk} on .*"
+    visible: "YOUR WEEK"
+    timeout: 30000
+- tapOn: "(Today, )?${output.dayLabel},.*"
+
+# The sheet names the desk it is about, which is what makes this "that booking" rather
+# than "a booking".
+- assertVisible: "${output.desk}"
+- tapOn: "Cancel this booking"
+- extendedWaitUntil:
+    notVisible: "Cancel this booking"
+    timeout: 30000
+# Dismissed by tapping the backdrop rather than a button. The sheet's "Close" IS the
+# backdrop (components/Sheet.tsx), and the sheet sets `accessibilityViewIsModal`, which
+# on iOS hides every sibling from the accessibility tree — so that label is selectable on
+# Android and invisible on iOS. The sheet is capped at 82% of the screen height, so a tap
+# near the top is always backdrop; if no sheet is open it lands on empty header space.
+- tapOn:
+    point: "50%,12%"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Back to where we started: the day has no booking on it again.
+- extendedWaitUntil:
+    notVisible: "${output.desk}, Booked by you"
     timeout: 30000

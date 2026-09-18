@@ -1,4 +1,4 @@
-.PHONY: up down db-reset migrate seed api worker test test-mobile test-e2e test-all test-db-drop lint gen-client build-android
+.PHONY: up down db-reset migrate seed api worker test test-mobile test-e2e test-e2e-android test-all test-db-drop lint gen-client build-android
 
 up:            ## start postgres, redis, mailpit
 	docker compose up -d --wait
@@ -28,7 +28,10 @@ test-mobile:   ## mobile unit tests (jest)
 	cd apps/mobile && npx jest
 
 test-e2e:      ## drive the app in the iOS simulator (needs make up, make api and Metro)
-	bash scripts/e2e.sh
+	bash scripts/e2e.sh ios
+
+test-e2e-android: ## the same flows, on an Android emulator or attached device
+	bash scripts/e2e.sh android
 
 test-all: test test-mobile
 

@@ -1,0 +1,21 @@
+# Leave a pushed screen for the tabs beneath it. Expected env: APP_ID.
+#
+# The one navigation gesture with no shared spelling. On iOS Maestro's `back` is an edge
+# swipe: it reports success and does nothing on this screen, so the header button is the
+# only way. Android has a real back affordance, and using it also exercises the hardware
+# button a user actually presses.
+appId: ${APP_ID}
+---
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      # UIKit labels it "Back" regardless of what it returns to. It used to carry the
+      # previous screen's title, which is why an older version of this flow tapped
+      # "Spaces" — that label is gone.
+      - tapOn: "Back"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back

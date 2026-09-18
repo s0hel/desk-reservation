@@ -1,17 +1,51 @@
-# From the Today tab, cancel this user's booking for DAY_ISO if there is one.
+# From the tabs, cancel this user's booking for DAY_LABEL if there is one, and leave the
+# day sheet closed. Expected env: APP_ID, DAY_LABEL.
 #
-# Policy allows one desk per person per day (DeskPerDayLimit), so a leftover booking
-# does not fail the next run's booking step with a plain "unavailable" — it fails it
-# with a policy refusal, which reads like a broken test rather than dirty state. At
-# most one booking can exist for the day, so a single conditional cancel is enough.
-appId: host.exp.Exponent
+# Policy allows one desk per person per day (DeskPerDayLimit), so a booking left behind
+# by a crashed run does not fail the next run's booking step with a plain "unavailable" —
+# it fails it with a policy refusal, which reads like a broken test rather than dirty
+# state. At most one booking can exist for the day, so a single conditional cancel is
+# enough.
+#
+# Cancel lives in the day's detail sheet rather than on the card: tapping the day in the
+# week strip opens that sheet for any day, which is what makes this work for a booking
+# made today and one made next Monday without branching on which.
+appId: ${APP_ID}
 ---
+# Retried rather than tapped once. A dev build draws LogBox banners across the bottom
+# of the screen, overlapping the top of the tab bar, and a tap that lands in the overlap
+# is swallowed silently — Maestro reports COMPLETED and the app stays put, which reads as
+# a broken selector. Retrying until the destination actually appears costs nothing when
+# the first tap works. The banners come from a real render-phase state update in the app;
+# once that is fixed this can go back to a single tap.
+- repeat:
+    times: 3
+    while:
+      notVisible: "YOUR WEEK"
+    commands:
+      - tapOn: "Today(, tab.*)?"
+      - waitForAnimationToEnd:
+          timeout: 3000
+- extendedWaitUntil:
+    visible: "YOUR WEEK"
+    timeout: 30000
+- tapOn: "(Today, )?${DAY_LABEL},.*"
+
 - runFlow:
     when:
-      visible: "Cancel booking for 4F-.* on ${DAY_ISO}"
+      visible: "Cancel this booking"
     commands:
-      - tapOn: "Cancel booking for 4F-.* on ${DAY_ISO}"
-      - tapOn: "^Cancel booking$"
+      - tapOn: "Cancel this booking"
       - extendedWaitUntil:
-          notVisible: "Cancel booking for 4F-.* on ${DAY_ISO}"
+          notVisible: "Cancel this booking"
           timeout: 30000
+
+# Dismissed by tapping the backdrop rather than a button. The sheet's "Close" IS the
+# backdrop (components/Sheet.tsx), and the sheet sets `accessibilityViewIsModal`, which
+# on iOS hides every sibling from the accessibility tree — so that label is selectable on
+# Android and invisible on iOS. The sheet is capped at 82% of the screen height, so a tap
+# near the top is always backdrop; if no sheet is open it lands on empty header space.
+- tapOn:
+    point: "50%,12%"
+- waitForAnimationToEnd:
+    timeout: 3000

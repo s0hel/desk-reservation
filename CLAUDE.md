@@ -50,12 +50,15 @@ Mobile: `cd apps/mobile && npx expo start`. Sign in with any seeded address, e.g
 physical device, set `EXPO_PUBLIC_API_BASE_URL` in `apps/mobile/.env` to your LAN IP, not
 `localhost`.
 
-End-to-end flows live in `apps/mobile/.maestro` and drive the app in the simulator via
-Expo Go; `apps/mobile/.maestro/README.md` covers what they cover, what they can't, and
-the XCUITest behaviours that will otherwise look like app bugs. They need the whole
-stack up (`make up && make api`, plus Metro) and are not part of CI — run them before
-shipping anything that touches booking or the floor plan, because **every UI bug in
-this app so far has been invisible to typecheck, lint and Jest.**
+End-to-end flows live in `apps/mobile/.maestro` and drive the real app on either
+platform — the iOS simulator through Expo Go (`make test-e2e`), an Android emulator or
+device through the dev build (`make test-e2e-android`).
+`apps/mobile/.maestro/README.md` covers what they cover, what they can't, and the harness
+behaviours that will otherwise look like app bugs. They need the whole stack up
+(`make up && make api`, plus Metro) and are not part of CI — run them before shipping
+anything that touches booking or the floor plan, because **every UI bug in this app so far
+has been invisible to typecheck, lint and Jest.** Run them on *both* platforms before
+trusting a change: this port found four defects that only one of the two showed.
 
 CI (`.github/workflows/ci.yml`) runs three independent jobs: `api` (lint, migrate, pytest —
 against the non-superuser role, see below), `contract` (regenerates the client and fails if
@@ -410,12 +413,37 @@ pass on a file that imports any of them, so the guard is knowing, not tooling. T
 works for the emulator as well as a physical device, so prefer it always, which is the same
 conclusion the iOS note reaches by a different road.
 
-**`make test-e2e` is iOS-only.** `scripts/e2e.sh` gates on `xcrun simctl` and Expo Go's iOS
-bundle id, so the Maestro flows cover one platform. Maestro itself drives Android over
-`adb` and the flows are platform-neutral, but the launcher is not — anything shipped on the
-strength of those flows is unverified on Android, and CLAUDE.md's standing warning applies
-with more force there: every UI bug in this app so far has been invisible to typecheck,
-lint and Jest.
+**The Maestro flows run on both platforms, from one set of files.** `make test-e2e` drives
+the iOS simulator through Expo Go; `make test-e2e-android` drives an emulator or device
+through the dev build. Everything that genuinely differs is decided by `scripts/e2e.sh`
+and passed in as `APP_ID` and `LAUNCH_URL`, so a flow only asks what platform it is on for
+the two gestures with no shared spelling (`subflows/go-back.yaml`, and the sign-out in
+`open-app.yaml` — `clearKeychain` on iOS, `clearState` on Android). Labels that differ only
+in trailing platform chrome use one full-match regex with an optional group:
+`"Spaces(, tab.*)?"` covers Android's plain title and UIKit's `"Spaces, tab, 2 of 3"`.
+Verified green on both: 3/3 on an API 36 emulator and on an iPhone 16 Pro simulator.
+
+**They had been dead for nine commits before that, and nothing said so.** `1c7ae09`
+rebuilt the home screen and the floor plan, and the flows still asserted the old
+vocabulary — `"Your bookings"`, `"Cancel booking for …"`, `"Floor 4, view resources"` — all
+of which that commit deleted. Every flow timed out at sign-in, on iOS too. The floor plan's
+coordinates went stale in the same commit and nobody noticed, because a suite that is never
+run cannot report that it is broken. `apps/mobile/.maestro/README.md` now carries the
+harness behaviours that cost the most time to work out; read it before editing a flow.
+
+Two of those are worth repeating here because they mislead rather than fail. **Maestro
+matches the whole string, not a substring** — `"BERLIN HQ"` does not match an element
+reading `TUESDAY · BERLIN HQ`. And **a dev build's LogBox banner overlaps the tab bar and
+silently swallows taps on it**: the tap reports COMPLETED and the app stays where it was,
+which reads exactly like a broken selector. The banner's height varies with how many lines
+the message wraps to, so it is intermittent. Tab taps retry until the destination appears.
+
+**The floor plan does not map 1:1 onto its element.** It opens at
+`fitScale = max(1, height / planHeight)`, which on a portrait phone is near 2.8, scaled
+about the element's centre — so a desk seeded at `(x, y)` is nowhere near `(x%, y%)` of the
+viewport, and any coordinate written on that assumption taps empty space. The derivation
+and the worked numbers for both devices are in the header of `flows/03-floor-plan.yaml`.
+They have to be literals: `point` is the one field Maestro never interpolates.
 
 **CocoaPods comes from Homebrew** (`brew install cocoapods`). System Ruby is 2.6, too old
 to run a modern CocoaPods.
