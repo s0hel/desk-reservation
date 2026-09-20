@@ -58,10 +58,12 @@ appId: ${APP_ID}
 # KeyboardAvoidingView lifts the button clear of the keyboard.
 - tapOn: "Continue"
 
-# The home screen, once the week has actually loaded. The site's name comes from the
-# API, so this says the session works rather than merely that a screen rendered.
-# Maestro matches the whole string, so the wildcards are load-bearing: the element
-# reads "TUESDAY · BERLIN HQ".
+# The home screen, once the week has actually loaded. The place in the greeting is the
+# site's `short_name` off the API and the name is this user's, so this says the session
+# works AND that the home site resolved (FR-1.9) — rather than merely that a screen
+# rendered. It replaced an assertion on ".*BERLIN HQ.*", which was the old header's
+# "TUESDAY · BERLIN HQ" eyebrow and no longer exists anywhere on this screen.
+# Maestro matches the whole string, so the trailing wildcard is load-bearing.
 - extendedWaitUntil:
-    visible: ".*BERLIN HQ.*"
+    visible: "Welcome to Berlin, .*"
     timeout: 30000

@@ -393,6 +393,13 @@ async def site_week_availability(
         .join(Floor, Floor.id == Resource.floor_id)
         .where(
             Booking.user_id == user.id,
+            # Scoped to THIS site, not merely to this user. Without it a desk booked
+            # in Berlin is reported as the answer for the same day at Tampa, and the
+            # day's card offers to show a Berlin floor on Tampa's plan. It was
+            # unreachable while the app only ever asked about one site; it stopped
+            # being unreachable the moment a user could have a home site (FR-1.9).
+            # `Resource` is already joined for the code.
+            Resource.site_id == site_id,
             Booking.local_date >= dates[0],
             Booking.local_date <= dates[-1],
             Booking.status.in_(ACTIVE_STATUSES),

@@ -6,6 +6,7 @@ import { Avatar } from "@/components/Avatar";
 import { Icon } from "@/components/Icon";
 import { api, ProblemError, type DayPresence } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useHomeSite } from "@/lib/site";
 import { statusLabel } from "@/lib/presence";
 import { at, radius, spacing, type, useTheme, useThemedStyles, type Theme } from "@/lib/theme";
 
@@ -23,12 +24,7 @@ export default function ColleagueScreen() {
   const styles = useThemedStyles(makeStyles);
   const router = useRouter();
 
-  const sites = useQuery({
-    queryKey: ["sites"],
-    queryFn: () => api.sites(token!),
-    enabled: !!token,
-  });
-  const site = sites.data?.[0];
+  const { site } = useHomeSite();
 
   const week = useQuery({
     queryKey: ["week", site?.id],

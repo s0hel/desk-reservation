@@ -16,6 +16,7 @@ auth, and an Expo app that signs in and lists seeded resources. Booking itself i
 
 ```
 apps/mobile/         Expo app (SDK 57, expo-router, TypeScript)
+apps/admin/           Admin console (Next.js App Router) — sites, floor plan editor, directory
 services/api/         FastAPI + PostgreSQL (the only backend that currently exists)
 packages/shared/      Policy reason codes, mirrored into Python by hand (kept in sync by CI)
 packages/api-client/  TypeScript client generated from the OpenAPI schema (committed)
@@ -201,6 +202,23 @@ not merely an admin role: a site admin who can grant roles can grant themselves
 `org_admin`. Changing someone's roles bumps their `token_version`, because their
 current access token still carries the old list.
 
+**Anything answered "for a site" must be filtered by that site, not just by the
+tenant.** `GET /v1/sites/{id}/availability` built its `my_booking` map from
+`user_id + date range` alone, so a desk held in Berlin came back as the answer for the
+same day at Tampa, and the day card offered to show a Berlin floor on Tampa's plan.
+Nothing caught it because nothing could reach it: the app only ever asked about one
+site until `home_site_id` gave users a second. RLS does not help here — both rows are
+the same tenant's. `tests/test_week_availability.py::test_a_booking_at_another_site_is_not_this_sites_answer`
+holds the line.
+
+**A foreign key is not a tenant check.** Postgres runs FK constraint checks as the
+referencing table's owner, and they are *not* subject to RLS — so `users.home_site_id`
+set to another tenant's site id is accepted by the constraint and then read as nothing
+by every query that joins it, leaving an account whose home office silently does not
+exist. `PATCH /v1/me` therefore SELECTs the site first, under the tenant session, and
+404s. Any new cross-row reference a client can name needs the same explicit lookup;
+the constraint only proves the row exists *somewhere*.
+
 **Errors are RFC 9457 `problem+json` with machine-readable violations, everywhere.**
 `app/core/errors.py::ProblemError` subclasses (`NotFound`, `Unauthorized`, `Forbidden`,
 `PolicyViolation`, `ResourceUnavailable`) carry a `detail` (developer-facing English) and a
@@ -235,6 +253,20 @@ contract.
   `presence.py` (see the visibility invariant above), `people.py` (users, groups, roles
   and deactivation — see the last-administrator invariant above).
 - `seed.py` — the `make seed` fixture data described in the README/Makefile.
+
+`services/site_photos.py` is a deliberate near-duplicate of `plan_assets.py`, not an
+oversight. A floor plan is a document — often a PDF, rasterized server-side, kept at
+whatever resolution the desks were positioned against — and a building photo is
+decoration shown at ~400pt on the home screen. So: no PDF branch, a hard re-encode to
+JPEG even when no resize was needed (which is what strips EXIF, including the GPS tag
+on a photo taken outside the building), and a much smaller edge ceiling. Sharing one
+pipeline would mean a function whose every step branches on which kind of asset it has.
+Both write through the same `storage.py`, whose key pattern is a **closed** prefix set
+(`plans|photos`) — a caller that can choose its own prefix can choose `../`. A site
+photo is live on upload: no draft, no publish step, because nothing can be stranded by
+replacing an image that no desk position refers to. Replacing one leaves the old row
+and blob behind on purpose — deleting them inside the request races every phone
+part-way through fetching the old URL.
 
 Dev-only sign-in (`POST /v1/auth/dev-login`) exists so Phase 0 is usable before a customer
 IdP is configured. It's gated by `ENABLE_DEV_LOGIN` + `ENVIRONMENT=development`, a startup
@@ -273,6 +305,42 @@ don't build against dev-login as if it were permanent.
 - `components/Avatar.tsx` — a person as a monogram. The tint is hashed from the **user
   id**, not the name, so it survives a rename; see the plan-colour invariant above for
   the one surface that overrides it.
+
+**No screen may reach for `sites[0]`.** The office every screen is about is the user's
+own `users.home_site_id` (FR-1.9), resolved in exactly one place —
+`lib/site.ts::useHomeSite`. Four screens each reaching for the first site was wrong in
+two ways at once: it silently picks whichever site sorts first alphabetically, and two
+screens can disagree the moment a tenant has a second building — the home screen showing
+Berlin's week while "Book a space" lists Amsterdam's floors, with nothing reported
+anywhere. The rule itself is the pure `resolveHomeSite`, because RNTL does not run here
+and a hook is only reachable through the simulator. A first-run picker
+(`app/pick-home-site.tsx`) fills the gap, behind a **route guard** like every other
+route change — never `router.replace`. It is offered only when there is a real choice:
+a single-office tenant falls back to that one site rather than being asked to pick it.
+A recorded home site that names a site the tenant no longer has counts as unanswered,
+so a closed office sends the user back to the picker instead of silently reassigning
+them.
+
+Changing it afterwards is the Me tab's "Home office" row. Both it and the picker go
+through `lib/site.ts::useSetHomeSite`, which owns the list of caches a change
+invalidates — two copies of that list is precisely the thing that grows in one place
+and not the other, and the symptom is the tabs rendering the old building's week. The
+two surfaces differ deliberately in one respect: the sheet applies on tap because it
+is dismissable, the picker has a confirm button because it is a gate with no way out.
+Both show the site's **full** name, not `short_name` — picking between two offices in
+Tampa is exactly the case the short name throws away, and the greeting is the only
+place that wants the place rather than the building.
+
+**The home screen header is rendered from the sites query, so "refresh" has to mean
+that query too.** The building photo's URL is a signed capability with an hour's life
+(TDD §11), exactly like a plan image. Two consequences that both shipped broken for
+about ten minutes: pull-to-refresh that refetched only the week left a swapped — or
+expired — photo on screen with the gesture visibly doing nothing, and `SiteBanner`'s
+`onError` fallback was a sticky boolean, so an app left open overnight failed once and
+then stayed on the placeholder until the process restarted. The failure state is keyed
+on the URL for that reason. The greeting's place comes from `sites.short_name` and
+falls back to `name` — never from trimming one into the other, which eventually greets
+somebody with "Welcome to Tampa — Rocky Poin".
 
 **No screen may derive "today" from the device.** `GET /v1/sites/{id}/availability`
 returns the site's own `today` along with the week, and that is the only correct source
@@ -408,6 +476,18 @@ there is a runtime crash, and `expo-symbols` is SF Symbols. Neither is imported 
 `src/` today (`@expo/ui` does ship Android). Typecheck, lint, Jest and `expo export` all
 pass on a file that imports any of them, so the guard is knowing, not tooling. This is what
 `components/Icon.tsx` already avoids by hand-drawing the set on `react-native-svg`.
+
+**The API hands out absolute image URLs, so `API_BASE_URL` is a second LAN-address
+trap — and it fails differently from the first.** Floor plan images and site photos are
+fetched by `<Image>` tags that cannot attach an Authorization header, so their URLs are
+absolute and signed (TDD §11), built server-side from `settings.api_base_url`. Left at
+`http://localhost:8000`, every one of them points at the *device* on an emulator or a
+phone. The app still signs in and books — that traffic uses the app's own
+`EXPO_PUBLIC_API_BASE_URL` — and only the pictures fail, so it reads as a broken image
+rather than a broken address. Verified on an API 36 emulator: the home screen showed
+its no-photo fallback until the API was restarted with `API_BASE_URL` set to the LAN
+address, at which point the photo appeared on a pull-to-refresh. `api_base_url` is also
+the JWT issuer, so changing it invalidates live access tokens — sign in again after.
 
 **On an emulator, `localhost` is the emulator** — the host is `10.0.2.2`. The LAN address
 works for the emulator as well as a physical device, so prefer it always, which is the same

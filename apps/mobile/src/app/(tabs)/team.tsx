@@ -6,6 +6,7 @@ import { Pressable, ScrollView, SectionList, Text, TextInput, View } from "react
 import { PersonRow } from "@/components/PersonRow";
 import { api, ProblemError, type Colleague } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useHomeSite } from "@/lib/site";
 import { addDays } from "@/lib/dates";
 import type { PresenceStatus } from "@/lib/presence";
 import { at, radius, spacing, type, useTheme, useThemedStyles, type Theme } from "@/lib/theme";
@@ -38,12 +39,7 @@ export default function TeamScreen() {
     return () => clearTimeout(id);
   }, [query]);
 
-  const sites = useQuery({
-    queryKey: ["sites"],
-    queryFn: () => api.sites(token!),
-    enabled: !!token,
-  });
-  const site = sites.data?.[0];
+  const { site } = useHomeSite();
 
   // Shared cache key with Today and the floor screen: the site's own `today` is the
   // only correct anchor for the strip (TDD §5), and it is already on the wire.

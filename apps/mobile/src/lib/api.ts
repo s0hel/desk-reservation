@@ -22,9 +22,33 @@ export class ProblemError extends Error {
   }
 }
 
-export type Site = {
-  id: string; name: string; timezone: string; address: string | null; checkin_enabled: boolean;
+/** A photograph of the building, for the home screen header (FR-2.1). */
+export type SitePhoto = {
+  url: string; width_px: number; height_px: number;
+  /**
+   * Carried so the header can reserve its box before the image lands. A header that
+   * resizes on arrival shoves the day's booking down the screen exactly as somebody
+   * is reaching for it.
+   */
+  aspect_ratio: number;
 };
+
+export type Site = {
+  id: string; name: string;
+  /**
+   * What people call the place — "Tampa", where `name` is "Tampa — Rocky Point".
+   * Null when the tenant has not set one; fall back to `name` (see `placeName`).
+   */
+  short_name: string | null;
+  timezone: string; address: string | null; checkin_enabled: boolean;
+  photo: SitePhoto | null;
+};
+
+/** The place, for a sentence a person reads. Never derive this by trimming `name`. */
+export function placeName(site: Pick<Site, "name" | "short_name"> | undefined): string {
+  return site?.short_name?.trim() || site?.name || "";
+}
+
 export type Floor = {
   id: string; site_id: string; name: string; ordinal: number;
   plan_width_px: number | null; plan_height_px: number | null;
@@ -246,8 +270,15 @@ export const api = {
   cancelBooking: (t: string, id: string) =>
     request<Booking>(`/v1/bookings/${id}`, { method: "DELETE" }, t),
 
-  updateMe: (t: string, body: { presence_visibility?: Visibility; locale?: string }) =>
-    request<Me>("/v1/me", { method: "PATCH", body: JSON.stringify(body) }, t),
+  updateMe: (
+    t: string,
+    body: {
+      presence_visibility?: Visibility;
+      locale?: string;
+      /** FR-1.9. Null clears it, which is what sends you back to the first-run picker. */
+      home_site_id?: string | null;
+    },
+  ) => request<Me>("/v1/me", { method: "PATCH", body: JSON.stringify(body) }, t),
 
   /** Who is in at a site on a day (FR-5.1). 404 when the org has presence switched off. */
   presence: (t: string, siteId: string, date?: string) => {

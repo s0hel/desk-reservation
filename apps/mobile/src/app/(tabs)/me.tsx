@@ -2,12 +2,14 @@ import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import { HomeSiteSheet } from "@/components/HomeSiteSheet";
 import { Icon } from "@/components/Icon";
 import { RefusalSheet } from "@/components/RefusalSheet";
 import { VisibilitySheet } from "@/components/VisibilitySheet";
 import { api, ProblemError, type Visibility } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { refusal, type Refusal } from "@/lib/messages";
+import { useHomeSite, useSetHomeSite } from "@/lib/site";
 import { radius, spacing, type, useTheme, useThemedStyles, type Theme } from "@/lib/theme";
 
 const VISIBILITY_LABEL: Record<Visibility, string> = {
@@ -21,9 +23,24 @@ export default function Me() {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const [editing, setEditing] = useState(false);
+  const [editingHome, setEditingHome] = useState(false);
   const [problem, setProblem] = useState<Refusal | null>(null);
 
   const presenceOn = me?.features?.presence !== false;
+
+  const { site, sites } = useHomeSite();
+  // A tenant with one office has nothing to choose, so the row states the office and
+  // does not pretend to be a control — the same reason the first-run picker skips
+  // them entirely (lib/site.ts). It is still shown: which building the app is about
+  // is worth being able to check, even when there is only one answer.
+  const canChooseHome = sites.length > 1;
+
+  const fail = (error: unknown) =>
+    setProblem(
+      error instanceof ProblemError
+        ? refusal(error.violations, error.detail)
+        : refusal([], "Could not reach the server."),
+    );
 
   const setVisibility = useMutation({
     mutationFn: (presence_visibility: Visibility) => api.updateMe(token!, { presence_visibility }),
@@ -31,13 +48,10 @@ export default function Me() {
       setEditing(false);
       await refreshMe();
     },
-    onError: (error) =>
-      setProblem(
-        error instanceof ProblemError
-          ? refusal(error.violations, error.detail)
-          : refusal([], "Could not reach the server."),
-      ),
+    onError: fail,
   });
+
+  const setHome = useSetHomeSite(() => setEditingHome(false));
 
   return (
     <>
@@ -51,6 +65,36 @@ export default function Me() {
             <Text style={styles.sub}>{me?.email}</Text>
           </View>
         </View>
+
+        {/* FR-1.9. Above presence because it is the more consequential of the two:
+            it decides which building every other screen is about, where visibility
+            only decides who sees you in it. */}
+        <Text style={styles.label}>Office</Text>
+        <Pressable
+          style={styles.card}
+          onPress={() => canChooseHome && setEditingHome(true)}
+          disabled={!canChooseHome}
+          accessibilityRole={canChooseHome ? "button" : "text"}
+          accessibilityLabel={`Home office, ${site?.name ?? "not set"}`}
+          accessibilityHint={canChooseHome ? "Double tap to change" : undefined}
+        >
+          <View style={styles.settingRow}>
+            <Icon name="building" size={20} color={theme.color.muted} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.settingTitle}>Home office</Text>
+              {/* The full name, not `placeName`: this row is where you check WHICH
+                  building, and "Tampa" is exactly the wrong answer when there are two
+                  of them in Tampa. The greeting on the home screen is the place; this
+                  is the address book. */}
+              <Text style={styles.settingValue}>{site?.name ?? "Not set"}</Text>
+            </View>
+            {/* No chevron when there is nowhere to go: an affordance that does
+                nothing is worse than none, because it gets tapped. */}
+            {canChooseHome ? (
+              <Icon name="chevronRight" size={20} color={theme.color.muted} />
+            ) : null}
+          </View>
+        </Pressable>
 
         {/* FR-5.6. The setting is real: it is enforced as a condition on every presence
             query, so choosing "nobody" removes you from other people's results rather
@@ -94,6 +138,15 @@ export default function Me() {
           <Text style={styles.signOutText}>Sign out</Text>
         </Pressable>
       </ScrollView>
+
+      <HomeSiteSheet
+        visible={editingHome}
+        sites={sites}
+        value={me?.home_site_id ?? null}
+        busy={setHome.isPending}
+        onChange={(siteId) => setHome.mutate(siteId, { onError: fail })}
+        onClose={() => setEditingHome(false)}
+      />
 
       <VisibilitySheet
         visible={editing}

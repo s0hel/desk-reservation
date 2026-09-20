@@ -5,28 +5,38 @@ import { FlatList, Pressable, Text, View } from "react-native";
 import { Icon } from "@/components/Icon";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useHomeSite } from "@/lib/site";
 import { radius, spacing, type, useTheme, useThemedStyles, type Theme } from "@/lib/theme";
 
 /**
- * The floors of a site, as a list of links to their plans.
+ * The floors of the user's home site, as a list of links to their plans.
  *
  * Shared by the Spaces tab (browse) and the pick-a-floor step (book for a named day).
  * `localDate` is what separates them: when set, every link carries it through to the
- * plan, and the header says which day you are choosing for.
+ * plan, and the header says which day you are choosing for. `kind` carries the same
+ * way, so "Book a room" lands on the rooms toggle rather than on desks.
  */
-export function FloorList({ localDate }: { localDate?: string }) {
+export function FloorList({
+  localDate,
+  kind = "desk",
+}: {
+  localDate?: string;
+  kind?: "desk" | "room";
+}) {
   const { token } = useAuth();
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
 
-  const sites = useQuery({ queryKey: ["sites"], queryFn: () => api.sites(token!), enabled: !!token });
-  const siteId = sites.data?.[0]?.id;
+  const { site } = useHomeSite();
+  const siteId = site?.id;
 
   const floors = useQuery({
     queryKey: ["floors", siteId],
     queryFn: () => api.floors(token!, siteId!),
     enabled: !!token && !!siteId,
   });
+
+  const thing = kind === "room" ? "a room" : "a desk";
 
   return (
     <FlatList
@@ -36,9 +46,11 @@ export function FloorList({ localDate }: { localDate?: string }) {
       keyExtractor={(f) => f.id}
       ListHeaderComponent={
         <View style={styles.head}>
-          <Text style={styles.header}>{sites.data?.[0]?.name ?? "Loading…"}</Text>
+          <Text style={styles.header}>{site?.name ?? "Loading…"}</Text>
           {localDate ? (
-            <Text style={styles.forDay}>Choosing a desk for {longDay(localDate)}</Text>
+            <Text style={styles.forDay}>
+              Choosing {thing} for {longDay(localDate)}
+            </Text>
           ) : null}
         </View>
       }
@@ -47,7 +59,7 @@ export function FloorList({ localDate }: { localDate?: string }) {
         <Link
           href={{
             pathname: "/floor/[id]",
-            params: { id: item.id, name: item.name, date: localDate ?? "" },
+            params: { id: item.id, name: item.name, date: localDate ?? "", kind },
           }}
           asChild
         >

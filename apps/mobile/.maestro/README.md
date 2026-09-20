@@ -99,6 +99,15 @@ Things that cost time to work out. None of them are app bugs.
   sits across the bottom of the screen, over the tab bar, and silently swallows taps on it.
   Maestro reports the tap as COMPLETED and the app just stays where it was, which reads as
   a broken selector for as long as you let it.
+- **The Android tab-tap swallow is intermittent across a whole-suite run, and it moves.**
+  Each of the three flows passes on its own; a full `make test-e2e-android` run has been
+  seen to drop one tab tap — a different flow's each time (`Me` in one run, `Spaces` in
+  the next), always with the tap reported COMPLETED and the app still on the previous
+  screen. That is the LogBox banner above: its height varies with how many lines the
+  message wraps to, so whether a given tap lands in the overlap is luck. The `repeat`
+  wrappers retry three times and usually absorb it. A single flow failing on a tab tap
+  is this, not a regression — re-run that flow alone before believing otherwise. iOS has
+  gone 3/3 every time, because Expo Go does not draw the banner.
 - **`eraseText` drops keystrokes.** The email field is a controlled `TextInput`, so every
   key round-trips through JS and synthetic input outruns it; the deletes that get dropped
   reappear behind whatever is typed next (typing `zzz` into a field that looked empty

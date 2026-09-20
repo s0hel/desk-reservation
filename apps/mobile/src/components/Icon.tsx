@@ -25,6 +25,7 @@ export type IconName =
   | "alert"
   | "signOut"
   | "home"
+  | "building"
   | "leave"
   | "travel"
   | "eye";
@@ -99,6 +100,15 @@ export function Icon({ name, size = 22, color, strokeWidth = 1.9 }: Props) {
           <Path d="M3.8 10.9 12 4.2l8.2 6.7" {...stroke} />
           <Path d="M6 10.2v9.6h12v-9.6" {...stroke} />
           <Path d="M10 19.8v-4.6h4v4.6" {...stroke} />
+        </>
+      ) : null}
+
+      {name === "building" ? (
+        <>
+          <Path d="M4.5 20.2V5.4a1.2 1.2 0 0 1 1.2-1.2h7a1.2 1.2 0 0 1 1.2 1.2v14.8" {...stroke} />
+          <Path d="M13.9 9.6h4.4a1.2 1.2 0 0 1 1.2 1.2v9.4" {...stroke} />
+          <Path d="M3 20.2h18" {...stroke} />
+          <Path d="M7.4 7.8h3.4M7.4 11.4h3.4M7.4 15h3.4M16.4 13.2h0M16.4 16.6h0" {...stroke} />
         </>
       ) : null}
 

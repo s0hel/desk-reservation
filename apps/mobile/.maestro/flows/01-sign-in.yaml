@@ -8,9 +8,14 @@ env:
 ---
 - runFlow: ../subflows/open-app.yaml
 
-# Signed in, with real data behind it: the site comes from the API, and the week
-# summary is computed from the bookings this user actually has.
-- assertVisible: ".*BERLIN HQ.*"
+# Signed in, with real data behind it. The greeting is three server-owned facts in one
+# sentence: the site is the one THIS user has as their home site (FR-1.9) rather than
+# whichever sorts first, "Berlin" is its `short_name` and not a trimmed `name`, and
+# "Priya" is the display name off /v1/me.
+- assertVisible: "Welcome to Berlin, Priya"
+# The site's own today, never the device's (TDD §5) — a Mac an hour behind Berlin must
+# still see Berlin's day at the top of the screen.
+- assertVisible: "TODAY IS .*"
 - assertVisible: "YOUR WEEK"
 
 # The tab bar is native (react-native-screens), so its accessibility text is the
@@ -32,6 +37,12 @@ env:
           timeout: 3000
 - assertVisible: "${USER_EMAIL}"
 - assertVisible: "employee"
+# The home office row (FR-1.9). The seed has one site, so it is a statement rather
+# than a control here — no chevron, not tappable — and the assertion is on the value,
+# which comes from /v1/me joined against /v1/sites. A tenant with two offices gets the
+# same row with a sheet behind it; that path needs a second site and so is not covered
+# by this suite.
+- assertVisible: "Home office, Berlin HQ"
 
 - tapOn: "Sign out"
 - assertVisible: "Sign in with your work email"

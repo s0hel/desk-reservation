@@ -14,6 +14,7 @@ import {
   type Availability, type ResourceAvailability,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useHomeSite } from "@/lib/site";
 import { describeAll, refusal, type Refusal } from "@/lib/messages";
 import { nearestTo } from "@/lib/presence";
 import { at, radius, spacing, type, useTheme, useThemedStyles, type Theme } from "@/lib/theme";
@@ -29,11 +30,17 @@ import { at, radius, spacing, type, useTheme, useThemedStyles, type Theme } from
  * screen-reader user gets, and what renders while a plan image loads (FR-2.4).
  */
 export default function FloorScreen() {
-  const { id, name, date: dateParam, near, nearName } = useLocalSearchParams<{
+  const { id, name, date: dateParam, kind: kindParam, near, nearName } = useLocalSearchParams<{
     id: string;
     name?: string;
     /** Set when arriving from a booking, so the plan opens on that booking's day. */
     date?: string;
+    /**
+     * Which toggle to open on, set when arriving from "Book a room" on the home
+     * screen. Desks and rooms are the same plan (TDD §4), so the intent has to
+     * survive the trip or the user lands on desks and has to say "rooms" again.
+     */
+    kind?: string;
     /** A colleague's desk to sit near, set when arriving from their screen (FR-5.3). */
     near?: string;
     nearName?: string;
@@ -44,7 +51,9 @@ export default function FloorScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
 
-  const [kind, setKind] = useState<"desk" | "room">("desk");
+  // Validated rather than cast: the param is a string off a URL, and anything that
+  // is not "room" means desks — which is also the right answer when it is absent.
+  const [kind, setKind] = useState<"desk" | "room">(kindParam === "room" ? "room" : "desk");
   const [view, setView] = useState<"plan" | "list">("plan");
   // No device date anywhere here. "Today" is defined by the site's timezone, never the
   // phone's (TDD §5) — opening this screen in Berlin from a phone still on the previous
@@ -56,12 +65,7 @@ export default function FloorScreen() {
   const [problem, setProblem] = useState<Refusal | null>(null);
   const [showDays, setShowDays] = useState(false);
 
-  const sites = useQuery({
-    queryKey: ["sites"],
-    queryFn: () => api.sites(token!),
-    enabled: !!token,
-  });
-  const site = sites.data?.[0];
+  const { site } = useHomeSite();
 
   // The day picker, the site's notion of today, and the alternatives offered when a
   // day is refused all come from here. A floor's own availability cannot answer

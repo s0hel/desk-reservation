@@ -241,3 +241,81 @@ async def test_my_booking_is_attached_to_its_day(world):
     finally:
         await s.rollback()
         await s.close()
+
+
+async def test_a_booking_at_another_site_is_not_this_sites_answer(world):
+    """The user's week at Tampa must not report the desk they hold in Berlin.
+
+    Unreachable while the app only ever asked about one site; it stopped being
+    unreachable the moment a user could have a home site they chose (FR-1.9), and it
+    showed up immediately — a second site's home screen naming a desk on the first
+    site's floor, with a "show me on the plan" link that crossed buildings.
+    """
+    other_site_id = uuid7()
+    other_desk_id = uuid7()
+
+    s = await _session(world.org)
+    try:
+        s.add(
+            Site(
+                id=other_site_id,
+                organization_id=world.org,
+                name="Tampa",
+                timezone="America/New_York",
+                opening_hours=HOURS,
+            )
+        )
+        await s.flush()
+        other_floor = Floor(id=uuid7(), organization_id=world.org, site_id=other_site_id, name="T1")
+        s.add(other_floor)
+        await s.flush()
+        s.add(
+            Resource(
+                id=other_desk_id,
+                organization_id=world.org,
+                site_id=other_site_id,
+                floor_id=other_floor.id,
+                kind="desk",
+                code="T-01",
+                capacity=1,
+                attributes={},
+            )
+        )
+        await s.commit()
+    finally:
+        await s.close()
+
+    # One booking at the ORIGINAL site, on the Tuesday.
+    s = await _session(world.org)
+    try:
+        user = await s.scalar(select(User).where(User.id == world.user))
+        await create_booking(
+            s,
+            actor=user,
+            request=BookingRequest(
+                resource_id=world.desks[0],
+                local_date=MONDAY + timedelta(days=1),
+                slot="full_day",
+                idempotency_key=str(uuid7()),
+            ),
+        )
+        await s.commit()
+    finally:
+        await s.close()
+
+    s = await _session(world.org)
+    try:
+        user = await s.scalar(select(User).where(User.id == world.user))
+
+        here = await site_week_availability(
+            site_id=world.site, session=s, user=user, start=MONDAY, days=7, kind="desk"
+        )
+        assert here.days[1].my_booking is not None, "the booking's own site still reports it"
+
+        there = await site_week_availability(
+            site_id=other_site_id, session=s, user=user, start=MONDAY, days=7, kind="desk"
+        )
+        assert [d.my_booking for d in there.days] == [None] * 7
+    finally:
+        await s.rollback()
+        await s.close()

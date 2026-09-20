@@ -5,6 +5,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useState } from "react";
 
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { useHomeSite } from "@/lib/site";
 import { type, useTheme } from "@/lib/theme";
 
 export default function RootLayout() {
@@ -41,10 +42,16 @@ export default function RootLayout() {
  * rejected mid-session. A guard closes both, because unmounting the screen you are on
  * is what forces the navigation.
  *
+ * The same rule covers the first-run home-site step (FR-1.9): it is a guarded route,
+ * not a redirect fired from an effect. `needsChoosing` stays false while the sites
+ * are still loading, so a user who already has a home office never sees the picker
+ * flash past on a cold start.
+ *
  * Separate from AuthProvider on purpose — useAuth has to run under the provider.
  */
 function RootStack() {
   const { token } = useAuth();
+  const { needsChoosing } = useHomeSite();
   const theme = useTheme();
 
   return (
@@ -61,7 +68,13 @@ function RootStack() {
       <Stack.Protected guard={!token}>
         <Stack.Screen name="sign-in" options={{ headerShown: false }} />
       </Stack.Protected>
-      <Stack.Protected guard={!!token}>
+      {/* Before the tabs, and mutually exclusive with them: the tabs are all about
+          one site, and there is no honest thing for them to show until we know which.
+          Ordered first so it wins the initial route when both could match. */}
+      <Stack.Protected guard={!!token && needsChoosing}>
+        <Stack.Screen name="pick-home-site" options={{ headerShown: false }} />
+      </Stack.Protected>
+      <Stack.Protected guard={!!token && !needsChoosing}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="pick-floor" />
         <Stack.Screen name="floor/[id]" />
