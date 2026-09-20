@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { SiteIdentity } from "@/components/SiteIdentity";
 import { apiJson } from "@/lib/api";
 import { getAccessToken, getIdentity, isAdmin } from "@/lib/session";
 import type { FloorSummary, SiteSummary } from "@/lib/types";
@@ -42,6 +43,10 @@ export default async function Home() {
               <div className="spacer" />
               <span className="muted small">{site.address}</span>
             </div>
+
+            {/* What the mobile home screen opens on (FR-2.1). Above the floor table
+                because it is the first thing an employee sees of this site. */}
+            <SiteIdentity site={site} />
 
             <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 12 }}>
               <thead>

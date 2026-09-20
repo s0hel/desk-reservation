@@ -204,6 +204,7 @@
           "spaces"
         ],
         "summary": "List Sites",
+        "description": "Every site in the tenant. On the app-open path \u2014 the home screen resolves the\nuser's home site from this list \u2014 so the photos are fetched in one query rather\nthan one per site.",
         "operationId": "list_sites_v1_sites_get",
         "responses": {
           "200": {
@@ -1226,6 +1227,57 @@
         }
       }
     },
+    "/v1/site-photos/{asset_id}": {
+      "get": {
+        "tags": [
+          "plans"
+        ],
+        "summary": "Get Site Photo",
+        "description": "The building, for the home screen header (FR-2.1).\n\nSame shape as the plan endpoint above and for the same reason \u2014 read its docstring\nbefore changing either. The audience in the token differs, so a plan URL presented\nhere is rejected at the signature check rather than at the lookup.",
+        "operationId": "get_site_photo_v1_site_photos__asset_id__get",
+        "parameters": [
+          {
+            "name": "asset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Asset Id"
+            }
+          },
+          {
+            "name": "t",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Signed capability token from the photo URL",
+              "title": "T"
+            },
+            "description": "Signed capability token from the photo URL"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The site photo",
+            "content": {
+              "image/jpeg": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/admin/sites": {
       "post": {
         "tags": [
@@ -1246,6 +1298,156 @@
         },
         "responses": {
           "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__api__v1__admin__SiteOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/sites/{site_id}": {
+      "patch": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Update Site",
+        "description": "Edit a site's details (FR-8.1).\n\nChanging `timezone` moves every future day boundary at this site (TDD \u00a75), which is\nwhy it is here rather than nowhere: a site created in the wrong zone currently has\nno way back short of SQL. It does not rewrite existing bookings \u2014 those are stored\nas UTC instants and stay at the same moment in time, which is the correct answer\nfor a site that was mis-filed and the wrong one for a site that has moved. That\nsecond case is a migration, not a field edit.",
+        "operationId": "update_site_v1_admin_sites__site_id__patch",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Site Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SitePatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__api__v1__admin__SiteOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/sites/{site_id}/photo": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Upload Site Photo",
+        "description": "A picture of the building, shown at the top of the home screen (FR-2.1).\n\nUnlike a floor plan, this is live the moment it is uploaded: there is no draft and\nno publish step, because a photo has no relationship to desk positions and nothing\ncan be stranded by replacing it. The whole site is returned rather than just the\nphoto so the console re-renders from one answer.",
+        "operationId": "upload_site_photo_v1_admin_sites__site_id__photo_post",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Site Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_site_photo_v1_admin_sites__site_id__photo_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__api__v1__admin__SiteOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Delete Site Photo",
+        "description": "Remove the header photo.\n\nThe app falls back to the site's initials over a tinted band, which occupies the\nsame box \u2014 so the home screen loses a photograph, not its layout.",
+        "operationId": "delete_site_photo_v1_admin_sites__site_id__photo_delete",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Site Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
@@ -2890,6 +3092,20 @@
         ],
         "title": "Body_upload_plan_v1_admin_floors__floor_id__plan_post"
       },
+      "Body_upload_site_photo_v1_admin_sites__site_id__photo_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_site_photo_v1_admin_sites__site_id__photo_post"
+      },
       "BookingOut": {
         "properties": {
           "id": {
@@ -4395,6 +4611,18 @@
             "minLength": 1,
             "title": "Name"
           },
+          "short_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Short Name"
+          },
           "timezone": {
             "type": "string",
             "maxLength": 64,
@@ -4424,6 +4652,103 @@
           "timezone"
         ],
         "title": "SiteIn"
+      },
+      "SitePatch": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "short_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Short Name"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "opening_hours": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opening Hours"
+          }
+        },
+        "type": "object",
+        "title": "SitePatch",
+        "description": "Every field optional, and `exclude_unset` is what makes that mean anything:\nclearing `short_name` is sending null, and not touching it is omitting it."
+      },
+      "SitePhotoOut": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "width_px": {
+            "type": "integer",
+            "title": "Width Px"
+          },
+          "height_px": {
+            "type": "integer",
+            "title": "Height Px"
+          },
+          "aspect_ratio": {
+            "type": "number",
+            "title": "Aspect Ratio"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url",
+          "width_px",
+          "height_px",
+          "aspect_ratio"
+        ],
+        "title": "SitePhotoOut",
+        "description": "A photograph of the building, for the home screen header (FR-2.1).\n\n`aspect_ratio` is carried so the client can reserve the right box before the image\narrives \u2014 a header that resizes when the photo lands shoves the day's booking down\nthe screen just as someone is reaching for it. Same reasoning as `Plan` in the\navailability response."
       },
       "TeamMemberOut": {
         "properties": {
@@ -4998,6 +5323,17 @@
             "type": "string",
             "title": "Name"
           },
+          "short_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Short Name"
+          },
           "timezone": {
             "type": "string",
             "title": "Timezone"
@@ -5012,14 +5348,26 @@
               }
             ],
             "title": "Address"
+          },
+          "photo": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SitePhotoOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
         "required": [
           "id",
           "name",
+          "short_name",
           "timezone",
-          "address"
+          "address",
+          "photo"
         ],
         "title": "SiteOut"
       },
@@ -5100,6 +5448,17 @@
             "type": "string",
             "title": "Name"
           },
+          "short_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Short Name"
+          },
           "timezone": {
             "type": "string",
             "title": "Timezone"
@@ -5118,15 +5477,27 @@
           "checkin_enabled": {
             "type": "boolean",
             "title": "Checkin Enabled"
+          },
+          "photo": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SitePhotoOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
         "required": [
           "id",
           "name",
+          "short_name",
           "timezone",
           "address",
-          "checkin_enabled"
+          "checkin_enabled",
+          "photo"
         ],
         "title": "SiteOut"
       }

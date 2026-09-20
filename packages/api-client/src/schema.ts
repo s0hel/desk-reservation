@@ -106,7 +106,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Sites */
+        /**
+         * List Sites
+         * @description Every site in the tenant. On the app-open path — the home screen resolves the
+         *     user's home site from this list — so the photos are fetched in one query rather
+         *     than one per site.
+         */
         get: operations["list_sites_v1_sites_get"];
         put?: never;
         post?: never;
@@ -371,6 +376,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/site-photos/{asset_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Site Photo
+         * @description The building, for the home screen header (FR-2.1).
+         *
+         *     Same shape as the plan endpoint above and for the same reason — read its docstring
+         *     before changing either. The audience in the token differs, so a plan URL presented
+         *     here is rejected at the signature check rather than at the lookup.
+         */
+        get: operations["get_site_photo_v1_site_photos__asset_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/sites": {
         parameters: {
             query?: never;
@@ -386,6 +415,65 @@ export interface paths {
          */
         post: operations["create_site_v1_admin_sites_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/sites/{site_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Site
+         * @description Edit a site's details (FR-8.1).
+         *
+         *     Changing `timezone` moves every future day boundary at this site (TDD §5), which is
+         *     why it is here rather than nowhere: a site created in the wrong zone currently has
+         *     no way back short of SQL. It does not rewrite existing bookings — those are stored
+         *     as UTC instants and stay at the same moment in time, which is the correct answer
+         *     for a site that was mis-filed and the wrong one for a site that has moved. That
+         *     second case is a migration, not a field edit.
+         */
+        patch: operations["update_site_v1_admin_sites__site_id__patch"];
+        trace?: never;
+    };
+    "/v1/admin/sites/{site_id}/photo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Site Photo
+         * @description A picture of the building, shown at the top of the home screen (FR-2.1).
+         *
+         *     Unlike a floor plan, this is live the moment it is uploaded: there is no draft and
+         *     no publish step, because a photo has no relationship to desk positions and nothing
+         *     can be stranded by replacing it. The whole site is returned rather than just the
+         *     photo so the console re-renders from one answer.
+         */
+        post: operations["upload_site_photo_v1_admin_sites__site_id__photo_post"];
+        /**
+         * Delete Site Photo
+         * @description Remove the header photo.
+         *
+         *     The app falls back to the site's initials over a tinted band, which occupies the
+         *     same box — so the home screen loses a photograph, not its layout.
+         */
+        delete: operations["delete_site_photo_v1_admin_sites__site_id__photo_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -896,6 +984,11 @@ export interface components {
         };
         /** Body_upload_plan_v1_admin_floors__floor_id__plan_post */
         Body_upload_plan_v1_admin_floors__floor_id__plan_post: {
+            /** File */
+            file: string;
+        };
+        /** Body_upload_site_photo_v1_admin_sites__site_id__photo_post */
+        Body_upload_site_photo_v1_admin_sites__site_id__photo_post: {
             /** File */
             file: string;
         };
@@ -1525,6 +1618,8 @@ export interface components {
         SiteIn: {
             /** Name */
             name: string;
+            /** Short Name */
+            short_name?: string | null;
             /** Timezone */
             timezone: string;
             /** Address */
@@ -1533,6 +1628,44 @@ export interface components {
             opening_hours?: {
                 [key: string]: unknown;
             };
+        };
+        /**
+         * SitePatch
+         * @description Every field optional, and `exclude_unset` is what makes that mean anything:
+         *     clearing `short_name` is sending null, and not touching it is omitting it.
+         */
+        SitePatch: {
+            /** Name */
+            name?: string | null;
+            /** Short Name */
+            short_name?: string | null;
+            /** Timezone */
+            timezone?: string | null;
+            /** Address */
+            address?: string | null;
+            /** Opening Hours */
+            opening_hours?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /**
+         * SitePhotoOut
+         * @description A photograph of the building, for the home screen header (FR-2.1).
+         *
+         *     `aspect_ratio` is carried so the client can reserve the right box before the image
+         *     arrives — a header that resizes when the photo lands shoves the day's booking down
+         *     the screen just as someone is reaching for it. Same reasoning as `Plan` in the
+         *     availability response.
+         */
+        SitePhotoOut: {
+            /** Url */
+            url: string;
+            /** Width Px */
+            width_px: number;
+            /** Height Px */
+            height_px: number;
+            /** Aspect Ratio */
+            aspect_ratio: number;
         };
         /** TeamMemberOut */
         TeamMemberOut: {
@@ -1751,10 +1884,13 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+            /** Short Name */
+            short_name: string | null;
             /** Timezone */
             timezone: string;
             /** Address */
             address: string | null;
+            photo: components["schemas"]["SitePhotoOut"] | null;
         };
         /** GroupOut */
         app__api__v1__admin_people__GroupOut: {
@@ -1799,12 +1935,15 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+            /** Short Name */
+            short_name: string | null;
             /** Timezone */
             timezone: string;
             /** Address */
             address: string | null;
             /** Checkin Enabled */
             checkin_enabled: boolean;
+            photo: components["schemas"]["SitePhotoOut"] | null;
         };
     };
     responses: never;
@@ -2500,6 +2639,40 @@ export interface operations {
             };
         };
     };
+    get_site_photo_v1_site_photos__asset_id__get: {
+        parameters: {
+            query: {
+                /** @description Signed capability token from the photo URL */
+                t: string;
+            };
+            header?: never;
+            path: {
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The site photo */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_site_v1_admin_sites_post: {
         parameters: {
             query?: never;
@@ -2515,6 +2688,107 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__api__v1__admin__SiteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_site_v1_admin_sites__site_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SitePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__api__v1__admin__SiteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_site_photo_v1_admin_sites__site_id__photo_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_site_photo_v1_admin_sites__site_id__photo_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__api__v1__admin__SiteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_site_photo_v1_admin_sites__site_id__photo_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

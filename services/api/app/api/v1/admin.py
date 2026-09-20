@@ -22,6 +22,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_user, db, require_role
+from app.api.v1.spaces import SitePhotoOut, photo_out
 from app.core.config import get_settings
 from app.core.errors import NotFound
 from app.core.ids import uuid7
@@ -34,11 +35,12 @@ from app.models import (
     Group,
     Resource,
     Site,
+    SitePhoto,
     User,
 )
 from app.models.booking import ACTIVE_STATUSES
 from app.services import layout as layout_service
-from app.services import plan_assets
+from app.services import plan_assets, site_photos
 from app.services.booking import cancel_booking
 from app.services.storage import get_store
 
@@ -54,16 +56,32 @@ router = APIRouter(
 
 class SiteIn(BaseModel):
     name: str = Field(min_length=1, max_length=200)
+    #: The place, for the greeting on the home screen — "Tampa", where `name` is
+    #: "Tampa — Rocky Point" (FR-2.1). Optional; the client falls back to `name`.
+    short_name: str | None = Field(default=None, max_length=100)
     timezone: str = Field(min_length=1, max_length=64)
     address: str | None = None
     opening_hours: dict = Field(default_factory=dict)
 
 
+class SitePatch(BaseModel):
+    """Every field optional, and `exclude_unset` is what makes that mean anything:
+    clearing `short_name` is sending null, and not touching it is omitting it."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    short_name: str | None = Field(default=None, max_length=100)
+    timezone: str | None = Field(default=None, min_length=1, max_length=64)
+    address: str | None = None
+    opening_hours: dict | None = None
+
+
 class SiteOut(BaseModel):
     id: uuid.UUID
     name: str
+    short_name: str | None
     timezone: str
     address: str | None
+    photo: SitePhotoOut | None
 
 
 class FloorIn(BaseModel):
@@ -154,6 +172,24 @@ async def _plan_out(session: AsyncSession, asset_id: uuid.UUID | None) -> PlanOu
     )
 
 
+async def _site_out(session: AsyncSession, site: Site) -> SiteOut:
+    return SiteOut(
+        id=site.id,
+        name=site.name,
+        short_name=site.short_name,
+        timezone=site.timezone,
+        address=site.address,
+        photo=await photo_out(session, site.photo_asset_id),
+    )
+
+
+async def _site_or_404(session: AsyncSession, site_id: uuid.UUID) -> Site:
+    site = await session.scalar(select(Site).where(Site.id == site_id))
+    if site is None:
+        raise NotFound("Site not found")
+    return site
+
+
 def plan_url(asset_id: uuid.UUID, org_id: uuid.UUID) -> str:
     base = get_settings().api_base_url.rstrip("/")
     return f"{base}/v1/plans/{asset_id}?t={sign_asset_url(asset_id, org_id)}"
@@ -188,19 +224,104 @@ async def create_site(
     body: SiteIn,
     session: Annotated[AsyncSession, Depends(db)],
     actor: Annotated[User, Depends(current_user)],
-) -> Site:
+) -> SiteOut:
     """FR-8.1. The timezone is the site's, and it is the authority for "a day" (TDD §5)."""
     site = Site(
         id=uuid7(),
         organization_id=actor.organization_id,
         name=body.name,
+        short_name=body.short_name,
         timezone=body.timezone,
         address=body.address,
         opening_hours=body.opening_hours,
     )
     session.add(site)
     await session.flush()
-    return site
+    return await _site_out(session, site)
+
+
+@router.patch("/sites/{site_id}", response_model=SiteOut)
+async def update_site(
+    site_id: uuid.UUID,
+    body: SitePatch,
+    session: Annotated[AsyncSession, Depends(db)],
+) -> SiteOut:
+    """Edit a site's details (FR-8.1).
+
+    Changing `timezone` moves every future day boundary at this site (TDD §5), which is
+    why it is here rather than nowhere: a site created in the wrong zone currently has
+    no way back short of SQL. It does not rewrite existing bookings — those are stored
+    as UTC instants and stay at the same moment in time, which is the correct answer
+    for a site that was mis-filed and the wrong one for a site that has moved. That
+    second case is a migration, not a field edit.
+    """
+    site = await _site_or_404(session, site_id)
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(site, field, value)
+    await session.flush()
+    return await _site_out(session, site)
+
+
+@router.post("/sites/{site_id}/photo", response_model=SiteOut, status_code=201)
+async def upload_site_photo(
+    site_id: uuid.UUID,
+    session: Annotated[AsyncSession, Depends(db)],
+    actor: Annotated[User, Depends(current_user)],
+    file: Annotated[UploadFile, File()],
+) -> SiteOut:
+    """A picture of the building, shown at the top of the home screen (FR-2.1).
+
+    Unlike a floor plan, this is live the moment it is uploaded: there is no draft and
+    no publish step, because a photo has no relationship to desk positions and nothing
+    can be stranded by replacing it. The whole site is returned rather than just the
+    photo so the console re-renders from one answer.
+    """
+    settings = get_settings()
+    site = await _site_or_404(session, site_id)
+
+    # Read with a hard ceiling rather than trusting Content-Length.
+    body = await file.read(settings.max_site_photo_upload_bytes + 1)
+    rendered = site_photos.ingest(body, file.content_type or "")
+
+    photo = SitePhoto(
+        id=uuid7(),
+        organization_id=actor.organization_id,
+        storage_key="",
+        width_px=rendered.width_px,
+        height_px=rendered.height_px,
+        content_type=rendered.content_type,
+        checksum=rendered.checksum,
+    )
+    photo.storage_key = site_photos.storage_key(actor.organization_id, photo.id, rendered.extension)
+    session.add(photo)
+
+    # Write the blob before the transaction commits: an orphaned blob is harmless, a
+    # row pointing at a blob that was never written is a broken header image.
+    get_store().put(photo.storage_key, rendered.data)
+    await session.flush()
+
+    # The previous photo's row and blob are deliberately left behind. Deleting them
+    # here would race every phone that is part-way through fetching the old URL, and a
+    # few kilobytes is a cheaper problem than a header that 404s mid-download.
+    site.photo_asset_id = photo.id
+    await session.flush()
+    return await _site_out(session, site)
+
+
+@router.delete("/sites/{site_id}/photo", response_model=SiteOut)
+async def delete_site_photo(
+    site_id: uuid.UUID,
+    session: Annotated[AsyncSession, Depends(db)],
+) -> SiteOut:
+    """Remove the header photo.
+
+    The app falls back to the site's initials over a tinted band, which occupies the
+    same box — so the home screen loses a photograph, not its layout.
+    """
+    site = await _site_or_404(session, site_id)
+    site.photo_asset_id = None
+    await session.flush()
+    return await _site_out(session, site)
 
 
 @router.post("/sites/{site_id}/floors", response_model=FloorSummaryOut, status_code=201)
@@ -210,9 +331,7 @@ async def create_floor(
     session: Annotated[AsyncSession, Depends(db)],
     actor: Annotated[User, Depends(current_user)],
 ) -> FloorSummaryOut:
-    site = await session.scalar(select(Site).where(Site.id == site_id))
-    if site is None:
-        raise NotFound("Site not found")
+    site = await _site_or_404(session, site_id)
     floor = Floor(
         id=uuid7(),
         organization_id=actor.organization_id,
@@ -256,7 +375,7 @@ async def open_floor(
     # the old image.
     return FloorEditorOut(
         floor=await _floor_summary(session, floor),
-        site=SiteOut(id=site.id, name=site.name, timezone=site.timezone, address=site.address),
+        site=await _site_out(session, site),
         plan=await _plan_out(session, layout.plan_asset_id),
         layout=layout,
         is_draft=is_draft,

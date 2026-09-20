@@ -14,10 +14,27 @@ class ResourceKind(enum.StrEnum):
     room = "room"
 
 
+class SitePhoto(Base, PKMixin, TimestampMixin, OrgScopedMixin):
+    """A photograph of the building (migration 0004). Not a FloorPlanAsset: a plan
+    carries an original/rendered pair because PDFs are rasterized, and a photo has no
+    such distinction."""
+
+    __tablename__ = "site_photos"
+
+    storage_key: Mapped[str] = mapped_column(String(500))
+    width_px: Mapped[int] = mapped_column(Integer)
+    height_px: Mapped[int] = mapped_column(Integer)
+    content_type: Mapped[str] = mapped_column(String(100))
+    checksum: Mapped[str | None] = mapped_column(String(64))
+
+
 class Site(Base, PKMixin, TimestampMixin, OrgScopedMixin):
     __tablename__ = "sites"
 
     name: Mapped[str] = mapped_column(String(200))
+    #: What people call the place ("Tampa"), as against what an admin filed it under
+    #: ("Tampa — Rocky Point"). Nullable; the greeting falls back to `name`.
+    short_name: Mapped[str | None] = mapped_column(String(100))
     address: Mapped[str | None] = mapped_column(String(500))
     timezone: Mapped[str] = mapped_column(String(64))  # IANA. The authority for "a day" (TDD §5)
     geo_lat: Mapped[float | None] = mapped_column(Float)
@@ -27,6 +44,7 @@ class Site(Base, PKMixin, TimestampMixin, OrgScopedMixin):
     daily_capacity_cap: Mapped[int | None] = mapped_column(Integer)
     checkin_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     status: Mapped[str] = mapped_column(String(30), default="active")
+    photo_asset_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("site_photos.id"))
 
 
 class FloorPlanAsset(Base, PKMixin, TimestampMixin, OrgScopedMixin):

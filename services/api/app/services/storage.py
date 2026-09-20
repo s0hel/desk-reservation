@@ -1,13 +1,15 @@
-"""Blob storage for floor plan assets (TDD §14.3).
+"""Blob storage for floor plan assets and site photos (TDD §14.3).
 
 Local disk in development, S3 in staging and production. The interface is deliberately
-four methods wide: plans are written once and read many times, and nothing else about
-the product needs object storage yet. Widening it speculatively would invite callers to
-depend on semantics S3 and a filesystem do not share.
+three methods wide: these assets are written once and read many times, and nothing else
+about the product needs object storage yet. Widening it speculatively would invite
+callers to depend on semantics S3 and a filesystem do not share.
 
-Keys are always `plans/<org_id>/<asset_id>.<ext>` — org-prefixed so a misconfigured
-bucket policy still separates tenants, and so a stray key cannot be traversed into
-another tenant's prefix.
+Keys are always `<prefix>/<org_id>/<asset_id>.<ext>`, where the prefix is one of a
+closed set — org-prefixed so a misconfigured bucket policy still separates tenants, and
+so a stray key cannot be traversed into another tenant's prefix. The prefix set is
+closed rather than free-form for the same reason the pattern exists at all: a caller
+that can choose its own prefix can choose `../`.
 """
 
 from __future__ import annotations
@@ -18,7 +20,10 @@ from typing import Protocol
 
 from app.core.config import get_settings
 
-KEY_PATTERN = re.compile(r"^plans/[0-9a-f-]{36}/[0-9a-f-]{36}\.[a-z0-9]{2,5}$")
+KEY_PREFIXES = ("plans", "photos")
+KEY_PATTERN = re.compile(
+    rf"^({'|'.join(KEY_PREFIXES)})/[0-9a-f-]{{36}}/[0-9a-f-]{{36}}\.[a-z0-9]{{2,5}}$"
+)
 
 
 class StorageError(RuntimeError):

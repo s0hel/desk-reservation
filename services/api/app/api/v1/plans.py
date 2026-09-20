@@ -1,8 +1,9 @@
-"""Serving floor plan images (TDD §11 "signed CDN url", §14.3).
+"""Serving images — floor plans and site photos (TDD §11 "signed CDN url", §14.3).
 
-This is the one endpoint that is not bearer-authenticated, and the reason is concrete:
-the image is rendered by an `<Image>` tag inside the mobile floor plan, which cannot
-attach an Authorization header. The capability therefore travels in the URL.
+These are the only endpoints that are not bearer-authenticated, and the reason is
+concrete: the image is rendered by an `<Image>` tag in the mobile app — the floor plan
+in one case, the home screen header in the other — which cannot attach an
+Authorization header. The capability therefore travels in the URL.
 
 The token names both the asset and its tenant, and the tenant is taken FROM THE TOKEN —
 never from a query parameter and never from the asset row before it has been read under
@@ -25,12 +26,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import anon_db
 from app.core.errors import NotFound
-from app.core.security import verify_asset_token
+from app.core.security import SITE_PHOTO_AUDIENCE, verify_asset_token
 from app.db.session import _apply_tenant
-from app.models import FloorPlanAsset
+from app.models import FloorPlanAsset, SitePhoto
 from app.services.storage import StorageError, get_store
 
 router = APIRouter(tags=["plans"])
+
+
+def _image_response(data: bytes, content_type: str, etag: str) -> Response:
+    return Response(
+        content=data,
+        media_type=content_type,
+        headers={
+            # Immutable: a new upload is a new asset id, so the URL changes when the
+            # image does. The max-age is bounded by the token's own lifetime anyway.
+            "Cache-Control": "private, max-age=3600, immutable",
+            "ETag": f'"{etag}"',
+        },
+    )
 
 
 @router.get(
@@ -58,13 +72,38 @@ async def get_plan(
     except StorageError as exc:
         raise NotFound("Plan image is missing from storage") from exc
 
-    return Response(
-        content=data,
-        media_type=asset.content_type,
-        headers={
-            # Immutable: a new upload is a new asset id, so the URL changes when the
-            # image does. The max-age is bounded by the token's own lifetime anyway.
-            "Cache-Control": "private, max-age=3600, immutable",
-            "ETag": f'"{asset.checksum or asset.id}"',
-        },
-    )
+    return _image_response(data, asset.content_type, str(asset.checksum or asset.id))
+
+
+@router.get(
+    "/site-photos/{asset_id}",
+    response_class=Response,
+    responses={200: {"content": {"image/jpeg": {}}, "description": "The site photo"}},
+)
+async def get_site_photo(
+    asset_id: uuid.UUID,
+    session: Annotated[AsyncSession, Depends(anon_db)],
+    t: Annotated[str, Query(description="Signed capability token from the photo URL")],
+) -> Response:
+    """The building, for the home screen header (FR-2.1).
+
+    Same shape as the plan endpoint above and for the same reason — read its docstring
+    before changing either. The audience in the token differs, so a plan URL presented
+    here is rejected at the signature check rather than at the lookup.
+    """
+    token_asset_id, org_id = verify_asset_token(t, audience=SITE_PHOTO_AUDIENCE)
+    if token_asset_id != asset_id:
+        # The token is the authority. A mismatch means someone edited the path.
+        raise NotFound("Site photo not found")
+
+    await _apply_tenant(session, org_id)
+    photo = await session.scalar(select(SitePhoto).where(SitePhoto.id == asset_id))
+    if photo is None:
+        raise NotFound("Site photo not found")
+
+    try:
+        data = get_store().get(photo.storage_key)
+    except StorageError as exc:
+        raise NotFound("Site photo is missing from storage") from exc
+
+    return _image_response(data, photo.content_type, str(photo.checksum or photo.id))

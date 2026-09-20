@@ -37,6 +37,12 @@ class Settings(BaseSettings):
     #: renderer cannot attach an Authorization header (TDD §11, "signed CDN url").
     plan_url_ttl_seconds: int = 3600
 
+    #: Site photos (migration 0004). A decorative header image, not a document, so the
+    #: ceilings are an order of magnitude tighter than a plan's — it is downloaded on
+    #: app open, over whatever connection the user has on the way into the building.
+    max_site_photo_upload_bytes: int = 12 * 1024 * 1024
+    site_photo_max_edge_px: int = 1600
+
     log_level: str = "INFO"
     sql_echo: bool = False
 

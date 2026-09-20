@@ -70,11 +70,22 @@ export type FloorSummary = {
   has_draft: boolean;
 };
 
+/** The building's photograph, shown at the top of the mobile home screen (FR-2.1). */
+export type SitePhoto = {
+  url: string;
+  width_px: number;
+  height_px: number;
+  aspect_ratio: number;
+};
+
 export type SiteSummary = {
   id: string;
   name: string;
+  /** What people call the place — "Tampa", where `name` is "Tampa — Rocky Point". */
+  short_name: string | null;
   timezone: string;
   address: string | null;
+  photo: SitePhoto | null;
 };
 
 export type Group = { id: string; name: string; kind: string };

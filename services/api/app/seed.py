@@ -98,6 +98,9 @@ async def seed() -> None:
             id=uuid7(),
             organization_id=ORG_ID,
             name="Berlin HQ",
+            # What the home screen greets you with: "Welcome to Berlin, Priya". The
+            # full name is what an admin files it under (FR-2.1).
+            short_name="Berlin",
             address="Torstrasse 1, 10119 Berlin",
             timezone="Europe/Berlin",
             geo_lat=52.5296,

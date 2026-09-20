@@ -26,6 +26,7 @@ from app.models.space import (
     Resource,
     ResourceKind,
     Site,
+    SitePhoto,
     Zone,
 )
 
@@ -55,6 +56,7 @@ __all__ = [
     "ResourceKind",
     "RoleAssignment",
     "Site",
+    "SitePhoto",
     "User",
     "Zone",
     "ZonePermission",

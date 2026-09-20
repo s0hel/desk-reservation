@@ -25,7 +25,21 @@ const MESSAGES: Record<string, (p: Params) => string> = {
   "admin.email_taken": (p) =>
     `${p.email} already belongs to ${p.display_name ?? "someone here"}.`,
   "admin.unknown_role": (p) => `“${p.role}” isn't a role this product has.`,
+
+  // Site photo upload (FR-2.1). Each one names the file's problem, because the admin
+  // is standing in front of a file picker and the next action is picking a different
+  // file — "upload failed" would send them to try the same one again.
+  "photo.too_large": (p) =>
+    `That image is ${megabytes(p.bytes)}. The limit is ${megabytes(p.max_bytes)} — it is a header image, downloaded on every app open.`,
+  "photo.unsupported_type": (p) =>
+    `${p.content_type ? `“${p.content_type}”` : "That file"} isn't an image this accepts. Use a JPEG, PNG or WebP — a PDF is a floor plan, not a photo of the building.`,
+  "photo.image_unreadable": () =>
+    "That file couldn't be read as an image, whatever its extension says. Try exporting it again.",
+  "photo.empty": () => "That file is empty.",
 };
+
+const megabytes = (value: unknown): string =>
+  typeof value === "number" ? `${(value / (1024 * 1024)).toFixed(1)}MB` : "an unknown size";
 
 /** One sentence per blocking violation. Never the server's `detail`, which is for us. */
 export function describeAdmin(problem: ProblemError): string {
